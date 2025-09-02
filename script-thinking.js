@@ -252,32 +252,54 @@ function processChunk(chunk) {
     if (isThinkingPhase) {
         updateThinkingContent();
         
+        // 调试：打印前100个字符看看内容
+        if (thinkingContent.length < 500) {
+            console.log('Chunk内容预览:', chunk.substring(0, 100));
+        }
+        
         // 简单的报告检测：查找明确的报告标志
         const reportMarkers = [
             '【一、市场数据部分】', '【市场数据部分】',
             '【一、', '【二、', '【三、', 
             '上证指数：', '深证成指：', '创业板指：',
             '### 【一、', '### 【二、', '## 【一、',
-            '市场数据：', '\n## ', '\n### '
+            '市场数据：', '\n## ', '\n### ',
+            '一、', '二、', '三、', '1.', '2.', '3.',
+            '---', '***', '##', '###'
         ];
         
-        // 只检查当前chunk是否包含标记
-        const hasReportMarker = reportMarkers.some(marker => chunk.includes(marker));
+        // 检查当前chunk是否包含标记
+        let foundMarker = null;
+        for (const marker of reportMarkers) {
+            if (chunk.includes(marker)) {
+                foundMarker = marker;
+                break;
+            }
+        }
         
         // 或者当思考内容超过一定长度且出现结构化内容
         const isLongWithStructure = thinkingContent.length > 1000 && 
                                    (chunk.includes('【') || chunk.includes('：') || chunk.includes('%'));
         
-        if (hasReportMarker || isLongWithStructure) {
+        if (foundMarker || isLongWithStructure) {
             console.log('检测到报告开始，切换到报告阶段');
-            console.log('触发标记:', hasReportMarker ? '找到标记' : '长度+结构');
+            console.log('触发标记:', foundMarker || '长度+结构');
             console.log('当前思考内容长度:', thinkingContent.length);
+            console.log('触发chunk预览:', chunk.substring(0, 200));
             
             isThinkingPhase = false;
             showResultSection();
             showStatus('正在生成最终报告...');
             
             // 将当前chunk作为报告的开始
+            finalContent += chunk;
+            updateFinalContent();
+        } else if (thinkingContent.length > 3000) {
+            // 备用方案：如果思考内容超过3000字符，强制切换
+            console.log('思考内容超过3000字符，强制切换到报告阶段');
+            isThinkingPhase = false;
+            showResultSection();
+            showStatus('正在生成最终报告...');
             finalContent += chunk;
             updateFinalContent();
         }
