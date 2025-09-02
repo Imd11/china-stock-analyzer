@@ -75,11 +75,15 @@ async function generateReport() {
 
 // 流式API调用
 async function callOpenRouterAPIStream(prompt) {
-    console.log('开始调用流式代理API (GPT-5-thinking-all)...');
-    console.log('代理 URL:', PROXY_URL);
+    console.log('开始调用API (GPT-5-thinking-all)...');
+    
+    // 判断是本地开发还是线上环境
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const apiUrl = isLocal ? PROXY_URL + '/api/chat/completions' : '/api/chat';
+    console.log('API URL:', apiUrl);
     
     try {
-        const response = await fetch(PROXY_URL + '/api/chat/completions', {
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
