@@ -1,32 +1,27 @@
 export const config = {
-  runtime: 'edge',  // 使用Edge Runtime，支持更长的执行时间
+  runtime: 'nodejs20.x',
+  maxDuration: 300, // 5分钟超时
 };
 
-export default async function handler(req) {
-  // 处理CORS
+export default async function handler(req, res) {
+  // 设置CORS头
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // 处理CORS预检
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    });
+    res.status(200).end();
+    return;
   }
   
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
   
   try {
-    const body = await req.json();
+    const body = req.body;
     
     const response = await fetch('https://api.tu-zi.com/v1/chat/completions', {
       method: 'POST',
@@ -39,41 +34,41 @@ export default async function handler(req) {
     
     if (!response.ok) {
       const errorText = await response.text();
-      return new Response(JSON.stringify({ 
+      res.status(response.status).json({
         error: `API Error: ${response.status}`,
-        details: errorText 
-      }), {
-        status: response.status,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
+        details: errorText
       });
+      return;
     }
     
-    // 返回流式响应
-    return new Response(response.body, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    });
+    // 设置流式响应头
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    
+    // 手动处理流式响应
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        res.write(chunk);
+      }
+      res.end();
+    } catch (streamError) {
+      console.error('Stream error:', streamError);
+      res.end();
+    }
     
   } catch (error) {
     console.error('Proxy error:', error);
-    return new Response(JSON.stringify({ 
+    res.status(500).json({
       error: 'Internal server error',
-      details: error.message 
-    }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      details: error.message
     });
   }
 }
