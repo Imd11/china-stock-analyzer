@@ -1,0 +1,384 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    color: white;
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+
+header p {
+    font-size: 1.1rem;
+    opacity: 0.95;
+}
+
+.model-info {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.model-badge, .feature-badge {
+    display: inline-block;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.model-badge {
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+.feature-badge {
+    background: rgba(255, 200, 0, 0.3);
+    border: 2px solid rgba(255, 200, 0, 0.5);
+}
+
+main {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.input-section {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.date-input {
+    flex: 1;
+    min-width: 200px;
+}
+
+.date-input label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #333;
+    font-weight: 600;
+}
+
+.date-input input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: all 0.3s;
+}
+
+.date-input input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.generate-btn {
+    padding: 0.75rem 2rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.generate-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+}
+
+.generate-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.loading {
+    text-align: center;
+    padding: 3rem;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 思考过程区域样式 */
+.thinking-section {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 2px solid #e9ecef;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.section-header h3 {
+    color: #495057;
+    font-size: 1.3rem;
+}
+
+.toggle-btn {
+    padding: 5px 15px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.3s;
+}
+
+.toggle-btn:hover {
+    background: #5a6268;
+}
+
+.thinking-content {
+    max-height: 400px;
+    overflow-y: auto;
+    transition: max-height 0.3s ease;
+}
+
+.thinking-content.collapsed {
+    max-height: 0;
+    overflow: hidden;
+}
+
+.thinking-text {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #6c757d;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.thinking-text .thinking-block {
+    background: rgba(102, 126, 234, 0.05);
+    padding: 10px;
+    margin: 5px 0;
+    border-left: 3px solid #667eea;
+    border-radius: 5px;
+}
+
+.thinking-text .search-block {
+    background: rgba(255, 193, 7, 0.1);
+    padding: 8px;
+    margin: 5px 0;
+    border-left: 3px solid #ffc107;
+    border-radius: 5px;
+    font-size: 0.85rem;
+}
+
+/* 结果区域样式 */
+.result-section {
+    margin-top: 2rem;
+}
+
+.result-section h2 {
+    color: #333;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.download-btn, .copy-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.download-btn {
+    background: #28a745;
+    color: white;
+}
+
+.download-btn:hover {
+    background: #218838;
+    transform: translateY(-1px);
+}
+
+.copy-btn {
+    background: #007bff;
+    color: white;
+}
+
+.copy-btn:hover {
+    background: #0056b3;
+    transform: translateY(-1px);
+}
+
+.report-content {
+    background: #f8f9fa;
+    padding: 2rem;
+    border-radius: 10px;
+    border-left: 5px solid #667eea;
+    line-height: 1.8;
+    font-size: 1.05rem;
+}
+
+.report-content h3 {
+    color: #667eea;
+    margin: 1.5rem 0 1rem;
+    font-size: 1.3rem;
+}
+
+.report-content h4 {
+    color: #495057;
+    margin: 1rem 0 0.5rem;
+    font-size: 1.1rem;
+}
+
+.report-content p {
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+/* 状态栏 */
+.status-bar {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 1000;
+}
+
+.status-text {
+    font-size: 0.9rem;
+}
+
+/* 流式光标动画 */
+.streaming-cursor {
+    display: inline-block;
+    animation: blink 1s infinite;
+    color: #667eea;
+    font-weight: bold;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+footer {
+    text-align: center;
+    padding: 2rem 0;
+    color: rgba(255, 255, 255, 0.9);
+    margin-top: 2rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    header h1 {
+        font-size: 2rem;
+    }
+    
+    .input-section {
+        flex-direction: column;
+    }
+    
+    .date-input {
+        width: 100%;
+    }
+    
+    .generate-btn {
+        width: 100%;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .download-btn, .copy-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* 滚动条样式 */
+.thinking-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.thinking-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.thinking-content::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+
+.thinking-content::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

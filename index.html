@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中国上市公司重大事件分析工具</title>
+    <link rel="stylesheet" href="style-thinking.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>中国上市公司重大事件分析工具</h1>
+            <p>基于AI的24小时上市公司重大事件智能分析</p>
+            <div class="model-info">
+                <span class="model-badge">GPT-5-thinking-all</span>
+                <span class="feature-badge">含思考过程</span>
+            </div>
+        </header>
+        
+        <main>
+            <div class="input-section">
+                <div class="date-input">
+                    <label for="date">选择日期：</label>
+                    <input type="date" id="date" name="date" required>
+                </div>
+                
+                <button id="generateBtn" class="generate-btn">生成分析报告</button>
+            </div>
+            
+            <div class="loading" id="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>正在分析数据，请稍候...</p>
+            </div>
+            
+            <!-- 思考过程区域 -->
+            <div class="thinking-section" id="thinkingSection" style="display: none;">
+                <div class="section-header">
+                    <h3>🤔 AI思考过程</h3>
+                    <button id="toggleThinking" class="toggle-btn">折叠</button>
+                </div>
+                <div class="thinking-content" id="thinkingContent">
+                    <div class="thinking-text" id="thinkingText"></div>
+                </div>
+            </div>
+            
+            <!-- 最终结果区域 -->
+            <div class="result-section" id="resultSection" style="display: none;">
+                <div class="section-header">
+                    <h2>📊 分析报告</h2>
+                    <div class="action-buttons">
+                        <button id="downloadBtn" class="download-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            下载报告
+                        </button>
+                        <button id="copyBtn" class="copy-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                            复制报告
+                        </button>
+                    </div>
+                </div>
+                <div class="report-content" id="reportContent"></div>
+            </div>
+            
+            <!-- 状态提示 -->
+            <div class="status-bar" id="statusBar" style="display: none;">
+                <span class="status-text" id="statusText"></span>
+            </div>
+        </main>
+        
+        <footer>
+            <p>© 2024 上市公司事件分析工具 - 基于GPT-5技术驱动</p>
+        </footer>
+    </div>
+    
+    <script src="script-thinking.js"></script>
+</body>
+</html>
