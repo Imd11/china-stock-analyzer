@@ -59,7 +59,7 @@ header h1 {
 }
 
 main {
-    background: #2563eb;
+    background: #60a5fa;
     border-radius: 20px;
     padding: 3rem;
     margin: 0 auto 40px;
@@ -123,8 +123,8 @@ main {
 
 .generate-btn {
     padding: 1rem 2.5rem;
-    background: #f0f4f8;
-    color: #2563eb;
+    background: #1e293b;
+    color: #f0f4f8;
     border: none;
     border-radius: 12px;
     font-size: 1.05rem;
@@ -137,7 +137,7 @@ main {
 
 .generate-btn:hover {
     transform: translateY(-2px);
-    background: #1e293b;
+    background: #0f172a;
     color: #f0f4f8;
 }
 
