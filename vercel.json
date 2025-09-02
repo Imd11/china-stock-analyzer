@@ -1,23 +1,7 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "proxy-server-axios.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/proxy-server-axios.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ],
-  "env": {
-    "API_KEY": "@api_key",
-    "MODEL_NAME": "gpt-5-thinking-all"
-  }
+  "buildCommand": "npm install",
+  "outputDirectory": ".",
+  "framework": null,
+  "installCommand": "npm install"
 }

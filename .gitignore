@@ -49,3 +49,4 @@ test.html
 
 # Package lock files (keep package-lock.json)
 # package-lock.json
+.vercel
