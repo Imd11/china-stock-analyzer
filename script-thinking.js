@@ -252,40 +252,31 @@ function processChunk(chunk) {
     if (isThinkingPhase) {
         updateThinkingContent();
         
-        // 调试：打印前100个字符看看内容
-        if (thinkingContent.length < 500) {
-            console.log('Chunk内容预览:', chunk.substring(0, 100));
-        }
+        // GPT-5-thinking-all的官方格式检测
+        // 思考阶段特征：以 > 开头的行
+        const isThinkingChunk = chunk.startsWith('>') || chunk.includes('\n>');
         
-        // 简单的报告检测：查找明确的报告标志
-        const reportMarkers = [
-            '【一、市场数据部分】', '【市场数据部分】',
-            '【一、', '【二、', '【三、', 
-            '上证指数：', '深证成指：', '创业板指：',
-            '### 【一、', '### 【二、', '## 【一、',
-            '市场数据：', '\n## ', '\n### ',
-            '一、', '二、', '三、', '1.', '2.', '3.',
-            '---', '***', '##', '###'
+        // 检测思考结束标志
+        const thoughtEndMarkers = [
+            '*Thought for',  // 思考时间标记
+            '以下是',        // 报告开始的常见标志
+            '---\n',         // Markdown分隔线
+            '###',           // Markdown标题
+            '##',            // Markdown标题
+            '【一、',        // 中文报告格式
+            '【市场数据',
+            '上证指数：',
+            '深证成指：'
         ];
         
-        // 检查当前chunk是否包含标记
-        let foundMarker = null;
-        for (const marker of reportMarkers) {
-            if (chunk.includes(marker)) {
-                foundMarker = marker;
-                break;
-            }
-        }
+        // 检查是否包含报告开始标记
+        const hasReportStart = thoughtEndMarkers.some(marker => chunk.includes(marker));
         
-        // 或者当思考内容超过一定长度且出现结构化内容
-        const isLongWithStructure = thinkingContent.length > 1000 && 
-                                   (chunk.includes('【') || chunk.includes('：') || chunk.includes('%'));
-        
-        if (foundMarker || isLongWithStructure) {
-            console.log('检测到报告开始，切换到报告阶段');
-            console.log('触发标记:', foundMarker || '长度+结构');
-            console.log('当前思考内容长度:', thinkingContent.length);
-            console.log('触发chunk预览:', chunk.substring(0, 200));
+        // 如果当前chunk不是思考格式且包含报告标记，切换到报告阶段
+        if (!isThinkingChunk && hasReportStart) {
+            console.log('检测到GPT-5报告开始');
+            console.log('最后的思考内容长度:', thinkingContent.length);
+            console.log('报告开始内容:', chunk.substring(0, 100));
             
             isThinkingPhase = false;
             showResultSection();
@@ -294,9 +285,9 @@ function processChunk(chunk) {
             // 将当前chunk作为报告的开始
             finalContent += chunk;
             updateFinalContent();
-        } else if (thinkingContent.length > 3000) {
-            // 备用方案：如果思考内容超过3000字符，强制切换
-            console.log('思考内容超过3000字符，强制切换到报告阶段');
+        } else if (thinkingContent.includes('*Thought for') && !isThinkingChunk) {
+            // 如果已经出现过思考时间标记，且当前不是思考格式，也切换
+            console.log('思考阶段结束，切换到报告');
             isThinkingPhase = false;
             showResultSection();
             showStatus('正在生成最终报告...');
