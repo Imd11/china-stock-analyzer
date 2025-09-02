@@ -166,19 +166,36 @@ async function callOpenRouterAPIStream(prompt) {
 
 // 处理每个数据块
 function processChunk(chunk) {
-    // 简化的内容处理：前面少量内容作为思考过程，其余作为最终报告
     if (isThinkingPhase) {
         thinkingContent += chunk;
         updateThinkingContent();
         
-        // 思考内容达到一定长度后，后续内容都作为最终报告
-        if (thinkingContent.length > 500) {
-            console.log('切换到最终内容阶段，思考内容长度:', thinkingContent.length);
+        // 检查GPT-5-thinking-all的实际输出标志
+        const reportStartMarkers = [
+            '以下是**',
+            '以下是',
+            '## ',
+            '### ',
+            '# 中国上市公司',
+            '【一、',
+            '【市场数据',
+            '上证指数：',
+            '深证成指：',
+            '---\n\n##',
+            '\n\n##'
+        ];
+        
+        // 检查是否找到报告开始标志
+        const hasReportStart = reportStartMarkers.some(marker => chunk.includes(marker));
+        
+        if (hasReportStart) {
+            console.log('检测到报告开始标志，切换到最终内容阶段');
+            console.log('标志内容:', chunk.substring(0, 100));
             isThinkingPhase = false;
             showResultSection();
             showStatus('正在生成最终报告...');
             
-            // 将当前chunk也添加到最终内容
+            // 将当前chunk添加到最终内容
             finalContent += chunk;
             updateFinalContent();
         }
