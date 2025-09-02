@@ -3,18 +3,21 @@ const API_URL = 'https://api.tu-zi.com/v1';
 const PROXY_URL = 'http://127.0.0.1:3001';
 
 // 全局变量存储内容
+let thinkingContent = '';
 let finalContent = '';
+let isThinkingPhase = true;
 
 document.addEventListener('DOMContentLoaded', function() {
     const dateInput = document.getElementById('date');
     const generateBtn = document.getElementById('generateBtn');
+    const loading = document.getElementById('loading');
+    const thinkingSection = document.getElementById('thinkingSection');
+    const resultSection = document.getElementById('resultSection');
+    const statusBar = document.getElementById('statusBar');
     const copyBtn = document.getElementById('copyBtn');
     const downloadBtn = document.getElementById('downloadBtn');
+    const toggleThinking = document.getElementById('toggleThinking');
     
-    // 永久隐藏思考过程区域
-    const thinkingSection = document.getElementById('thinkingSection');
-    if(thinkingSection) thinkingSection.style.display = 'none';
-
     // 设置默认日期为今天
     const today = new Date().toISOString().split('T')[0];
     dateInput.value = today;
@@ -23,8 +26,22 @@ document.addEventListener('DOMContentLoaded', function() {
     generateBtn.addEventListener('click', generateReport);
     copyBtn.addEventListener('click', copyReport);
     downloadBtn.addEventListener('click', downloadReport);
+    toggleThinking.addEventListener('click', toggleThinkingContent);
 });
 
+// 切换思考内容显示/隐藏
+function toggleThinkingContent() {
+    const thinkingContent = document.getElementById('thinkingContent');
+    const toggleBtn = document.getElementById('toggleThinking');
+    
+    if (thinkingContent.classList.contains('collapsed')) {
+        thinkingContent.classList.remove('collapsed');
+        toggleBtn.textContent = '折叠';
+    } else {
+        thinkingContent.classList.add('collapsed');
+        toggleBtn.textContent = '展开';
+    }
+}
 
 // 生成报告
 async function generateReport() {
@@ -35,11 +52,12 @@ async function generateReport() {
     }
     
     // 重置内容
+    thinkingContent = '';
     finalContent = '';
-    document.getElementById('reportContent').innerHTML = '';
-
+    isThinkingPhase = true;
+    
     showLoading();
-    hideResults(); // 确保旧结果被清除
+    hideResults();
     
     try {
         const prompt = createPrompt(date);
@@ -76,6 +94,7 @@ async function callOpenRouterAPIStream(prompt) {
                     }
                 ],
                 temperature: 0.3,
+                max_tokens: 8000,
                 stream: true
             })
         });
@@ -93,7 +112,7 @@ async function callOpenRouterAPIStream(prompt) {
         let buffer = '';
         
         hideLoading();
-        showResultSection();
+        showThinkingSection();
         showStatus('正在接收AI响应...');
         
         while (true) {
@@ -133,15 +152,49 @@ async function callOpenRouterAPIStream(prompt) {
 
 // 处理每个数据块
 function processChunk(chunk) {
-    finalContent += chunk;
-    updateFinalContent();
+    if (isThinkingPhase) {
+        thinkingContent += chunk;
+        const separatorIndex = thinkingContent.indexOf('[REPORT_START]');
+        if (separatorIndex !== -1) {
+            isThinkingPhase = false;
+            const reportPart = thinkingContent.substring(separatorIndex + '[REPORT_START]'.length);
+            thinkingContent = thinkingContent.substring(0, separatorIndex);
+            updateThinkingContent();
+            showResultSection();
+            showStatus('正在生成最终报告...');
+            finalContent = reportPart;
+            updateFinalContent();
+            console.log('检测到报告开始分隔符 [REPORT_START]');
+        } else {
+            updateThinkingContent();
+        }
+    } else {
+        finalContent += chunk;
+        updateFinalContent();
+    }
 }
 
+// 更新思考内容显示
+function updateThinkingContent() {
+    const thinkingText = document.getElementById('thinkingText');
+    thinkingText.innerHTML = formatThinkingContent(thinkingContent);
+}
 
 // 更新最终内容显示
 function updateFinalContent() {
     const reportContent = document.getElementById('reportContent');
     reportContent.innerHTML = formatFinalContent(finalContent) + '<span class="streaming-cursor">▊</span>';
+}
+
+// 格式化思考内容
+function formatThinkingContent(content) {
+    let formatted = content
+        .replace(/^> (.*)$/gm, '<div class="thinking-block">💭 $1</div>')
+        .replace(/```[\s\S]*?```/g, (match) => {
+            return '<div class="search-block">🔍 ' + match.replace(/```/g, '') + '</div>';
+        })
+        .replace(/\n/g, '<br>');
+    return formatted;
 }
 
 // 格式化最终内容
@@ -161,8 +214,15 @@ function finalizContent() {
     const reportContent = document.getElementById('reportContent');
     if (finalContent) {
         reportContent.innerHTML = formatFinalContent(finalContent);
+    } else if (isThinkingPhase) {
+        console.error('AI failed to produce a report. The separator [REPORT_START] was not found.');
+        reportContent.innerHTML = '<p style="color: #ef4444;">错误：AI未能生成格式化的报告。模型可能未能完成任务或未按规定格式输出。请检查思考过程以进行调试。</p>';
+        if (!thinkingContent) {
+           showThinkingSection();
+           document.getElementById('thinkingText').innerHTML = '<p>没有收到任何来自AI的输出。</p>';
+        }
     } else {
-        reportContent.innerHTML = '<p style="color: #ef4444;">错误：AI未能生成任何内容。</p>';
+        reportContent.innerHTML = '<p style="color: #ef4444;">生成报告失败，请重试。</p>';
     }
     hideStatus();
 }
@@ -210,12 +270,12 @@ function downloadReport() {
     const date = document.getElementById('date').value;
     const filename = `上市公司日报_${date}.md`;
     const fullContent = `# 中国上市公司重大事件分析报告\n\n` +
-                       `**生成日期**: ${new Date().toLocaleDateString('zh-CN')}\n` + 
-                       `**数据日期**: ${date}\n` + 
-                       `**技术支持**: GPT-5-thinking-all\n\n` + 
-                       `---\n\n` + 
+                       `**生成日期**: ${new Date().toLocaleDateString('zh-CN')}\n` +
+                       `**数据日期**: ${date}\n` +
+                       `**技术支持**: GPT-5-thinking-all\n\n` +
+                       `---\n\n` +
                        markdownContent + 
-                       `\n\n---\n\n` + 
+                       `\n\n---\n\n` +
                        `*本报告由AI自动生成，仅供参考。投资决策请以官方信息为准。*`;
     const blob = new Blob([fullContent], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -228,7 +288,7 @@ function downloadReport() {
     URL.revokeObjectURL(url);
     const btn = document.getElementById('downloadBtn');
     const originalHTML = btn.innerHTML;
-    btn.innerHTML = '✓ 已复制！';
+    btn.innerHTML = '✓ 已下载！';
     setTimeout(() => {
         btn.innerHTML = originalHTML;
     }, 2000);
@@ -245,15 +305,16 @@ function hideLoading() {
     document.getElementById('generateBtn').disabled = false;
 }
 
+function showThinkingSection() {
+    document.getElementById('thinkingSection').style.display = 'block';
+}
+
 function showResultSection() {
     document.getElementById('resultSection').style.display = 'block';
 }
 
 function hideResults() {
-    // 永久隐藏思考过程区域
-    const thinkingSection = document.getElementById('thinkingSection');
-    if(thinkingSection) thinkingSection.style.display = 'none';
-    
+    document.getElementById('thinkingSection').style.display = 'none';
     document.getElementById('resultSection').style.display = 'none';
     document.getElementById('statusBar').style.display = 'none';
 }
@@ -275,7 +336,13 @@ function showError(message) {
 
 // 创建提示词
 function createPrompt(date) {
-    return `你是一名专业的金融数据分析师。请严格按照以下格式，为 ${date} 生成一份中国上市公司重大事件分析报告。请直接输出报告，不要包含任何解释或额外的文字。
+    return `【最重要指令】你的输出必须严格分为两个部分，由一个分隔符隔开。
+第一部分是你的思考过程。
+第二部分是最终报告。
+在第一部分（思考过程）结束后，你必须另起一行，只输出 \"[REPORT_START]\" 这个词作为分隔符。
+
+【角色设定】你是一名专业的金融数据分析师。
+【任务】请基于下面的口令生成过去24h（${date}）上市公司的重大事件分析报告。
 
 # 中国上市公司新闻数据全面搜集口令
 
