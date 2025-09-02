@@ -73,13 +73,15 @@ header h1 {
 }
 
 main {
-    background: linear-gradient(135deg, #e8eaf6 0%, #dce2f4 100%);
+    background: linear-gradient(135deg, #d8dce8 0%, #c8cfe2 100%);
     border-radius: 20px;
-    padding: 3rem 2rem;
+    padding: 3rem;
     margin: 0 auto 40px;
-    max-width: 600px;
+    width: 75%;
+    max-width: 900px;
+    min-width: 600px;
     box-shadow: 
-        0 10px 30px rgba(0,0,0,0.08),
+        0 10px 30px rgba(0,0,0,0.1),
         0 1px 2px rgba(0,0,0,0.05);
     flex: 1;
 }
@@ -90,16 +92,16 @@ main {
     gap: 2rem;
     align-items: center;
     margin-bottom: 3rem;
-    padding: 2.5rem 2rem;
-    background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.3) 100%);
+    padding: 2.5rem;
+    background: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.4) 100%);
     border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.6);
     backdrop-filter: blur(10px);
 }
 
 .date-input {
     width: 100%;
-    max-width: 320px;
+    max-width: 380px;
 }
 
 .date-input label {
@@ -412,6 +414,8 @@ footer {
     main {
         padding: 2rem 1.5rem;
         margin: 0 15px 30px;
+        width: 90%;
+        min-width: auto;
     }
     
     .input-section {
