@@ -164,43 +164,112 @@ async function callOpenRouterAPIStream(prompt) {
     }
 }
 
-// 处理每个数据块
-function processChunk(chunk) {
-    if (isThinkingPhase) {
-        thinkingContent += chunk;
-        updateThinkingContent();
-        
-        // 检查GPT-5-thinking-all的实际输出标志
-        const reportStartMarkers = [
-            '以下是**',
-            '以下是',
-            '## ',
-            '### ',
-            '# 中国上市公司',
-            '【一、',
-            '【市场数据',
-            '上证指数：',
-            '深证成指：',
-            '---\n\n##',
-            '\n\n##'
+// 智能内容分离检测器
+class ContentSeparator {
+    constructor() {
+        this.reportStartMarkers = [
+            // 明确的报告开始标志
+            '【一、', '【二、', '【三、', '【四、', '【五、',
+            '【市场数据', '【宏观政策', '【上市公司', '【热点板块',
+            '上证指数：', '深证成指：', '创业板指：',
+            '# 中国上市公司', '## 中国上市公司', '### 中国上市公司',
+            
+            // 通用报告格式
+            '## 一、', '## 二、', '## 三、', '## 四、',
+            '### 一、', '### 二、', '### 三、', '### 四、',
+            
+            // 分析报告常见开头
+            '市场数据：', '数据分析：', '分析报告：',
+            '以下是', '根据', '基于', '通过分析',
+            
+            // 结构化内容标志
+            '---\n\n', '\n\n---', '\n\n##', '\n\n###',
+            '\n\n# ', '\n\n**一、', '\n\n**二、'
         ];
         
-        // 检查是否找到报告开始标志
-        const hasReportStart = reportStartMarkers.some(marker => chunk.includes(marker));
+        this.structuralElements = [
+            '：', '】', '【', '##', '###', '**', '--', '>>',
+            '涨幅', '跌幅', '成交额', '万亿', '亿元', '%', '±'
+        ];
+    }
+    
+    // 检测是否为报告开始
+    detectReportStart(chunk, fullThinkingContent) {
+        // 方法1：直接关键词匹配
+        const hasDirectMarker = this.reportStartMarkers.some(marker => 
+            chunk.includes(marker) || fullThinkingContent.includes(marker)
+        );
         
-        if (hasReportStart) {
-            console.log('检测到报告开始标志，切换到最终内容阶段');
-            console.log('标志内容:', chunk.substring(0, 100));
+        // 方法2：结构化内容密度检测
+        const structuralDensity = this.calculateStructuralDensity(chunk);
+        const isStructural = structuralDensity > 0.1; // 10%以上是结构化元素
+        
+        // 方法3：思考内容长度 + 结构化内容
+        const isLongEnough = fullThinkingContent.length > 300;
+        const hasStructure = isStructural && chunk.length > 20;
+        
+        // 方法4：检测明显的数据格式
+        const hasDataFormat = /\d+[.%]|\d+[万亿]|\d{4}年\d{1,2}月|\d+:\d+|[+-]\d+[.%]/.test(chunk);
+        
+        return hasDirectMarker || (isLongEnough && hasStructure) || hasDataFormat;
+    }
+    
+    // 计算结构化内容密度
+    calculateStructuralDensity(text) {
+        if (!text || text.length === 0) return 0;
+        
+        let structuralChars = 0;
+        for (const element of this.structuralElements) {
+            const matches = text.split(element).length - 1;
+            structuralChars += matches * element.length;
+        }
+        
+        return structuralChars / text.length;
+    }
+}
+
+// 全局内容分离器
+const contentSeparator = new ContentSeparator();
+
+// 处理每个数据块
+function processChunk(chunk) {
+    // 将所有内容都添加到思考内容中（用于完整记录）
+    thinkingContent += chunk;
+    
+    if (isThinkingPhase) {
+        updateThinkingContent();
+        
+        // 简单的报告检测：查找明确的报告标志
+        const reportMarkers = [
+            '【一、市场数据部分】', '【市场数据部分】',
+            '【一、', '【二、', '【三、', 
+            '上证指数：', '深证成指：', '创业板指：',
+            '### 【一、', '### 【二、', '## 【一、',
+            '市场数据：', '\n## ', '\n### '
+        ];
+        
+        // 只检查当前chunk是否包含标记
+        const hasReportMarker = reportMarkers.some(marker => chunk.includes(marker));
+        
+        // 或者当思考内容超过一定长度且出现结构化内容
+        const isLongWithStructure = thinkingContent.length > 1000 && 
+                                   (chunk.includes('【') || chunk.includes('：') || chunk.includes('%'));
+        
+        if (hasReportMarker || isLongWithStructure) {
+            console.log('检测到报告开始，切换到报告阶段');
+            console.log('触发标记:', hasReportMarker ? '找到标记' : '长度+结构');
+            console.log('当前思考内容长度:', thinkingContent.length);
+            
             isThinkingPhase = false;
             showResultSection();
             showStatus('正在生成最终报告...');
             
-            // 将当前chunk添加到最终内容
+            // 将当前chunk作为报告的开始
             finalContent += chunk;
             updateFinalContent();
         }
     } else {
-        // 最终内容阶段
+        // 报告阶段：后续内容都是报告
         finalContent += chunk;
         updateFinalContent();
     }
