@@ -122,33 +122,46 @@ async function callOpenRouterAPIStream(prompt) {
         showStatus('正在接收AI响应...');
         
         while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-            
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const data = line.substring(6);
+            try {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                    // 忽略心跳信号
+                    if (line.startsWith(':heartbeat')) continue;
                     
-                    if (data === '[DONE]') {
-                        console.log('流式响应完成');
-                        finalizContent();
-                        break;
-                    }
-                    
-                    try {
-                        const parsed = JSON.parse(data);
-                        if (parsed.choices?.[0]?.delta?.content) {
-                            const chunk = parsed.choices[0].delta.content;
-                            processChunk(chunk);
+                    if (line.startsWith('data: ')) {
+                        const data = line.substring(6);
+                        
+                        if (data === '[DONE]') {
+                            console.log('流式响应完成');
+                            finalizContent();
+                            break;
                         }
-                    } catch (e) {
-                        // 忽略解析错误
+                        
+                        try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.choices?.[0]?.delta?.content) {
+                                const chunk = parsed.choices[0].delta.content;
+                                processChunk(chunk);
+                            }
+                        } catch (e) {
+                            // 忽略解析错误
+                        }
                     }
                 }
+            } catch (readError) {
+                console.error('读取流错误:', readError);
+                // 如果有部分内容，仍然显示
+                if (thinkingContent || finalContent) {
+                    console.log('使用已接收的部分内容');
+                    finalizContent();
+                }
+                break;
             }
         }
         

@@ -45,6 +45,12 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // 禁用Nginx缓冲
+    
+    // 设置心跳保持连接
+    const heartbeat = setInterval(() => {
+      res.write(':heartbeat\n\n');
+    }, 30000); // 每30秒发送心跳
     
     // 手动处理流式响应
     const reader = response.body.getReader();
@@ -53,14 +59,22 @@ export default async function handler(req, res) {
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          clearInterval(heartbeat);
+          res.write('data: [DONE]\n\n');
+          res.end();
+          break;
+        }
         
         const chunk = decoder.decode(value, { stream: true });
         res.write(chunk);
+        
+        // 强制刷新缓冲区
+        if (res.flush) res.flush();
       }
-      res.end();
     } catch (streamError) {
       console.error('Stream error:', streamError);
+      clearInterval(heartbeat);
       res.end();
     }
     
