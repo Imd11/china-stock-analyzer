@@ -98,7 +98,7 @@ async function callOpenRouterAPIStream(prompt) {
                     }
                 ],
                 temperature: 0.3,
-                max_tokens: 3000, // 增加以容纳思考过程
+                max_tokens: 8000, // 增加以容纳思考过程和完整报告
                 stream: true
             })
         });
