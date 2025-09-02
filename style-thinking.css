@@ -59,7 +59,7 @@ header h1 {
 }
 
 main {
-    background: #93c5fd;
+    background: #2563eb;
     border-radius: 20px;
     padding: 3rem;
     margin: 0 auto 40px;
@@ -89,7 +89,7 @@ main {
 .date-input label {
     display: block;
     margin-bottom: 0.75rem;
-    color: #1e293b;
+    color: #f0f4f8;
     font-weight: 600;
     font-size: 0.95rem;
     letter-spacing: 0.3px;
@@ -98,12 +98,12 @@ main {
 .date-input input {
     width: 100%;
     padding: 1rem 1.25rem;
-    border: 2px solid #2563eb;
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 12px;
     font-size: 1rem;
     transition: all 0.2s;
-    background: #f0f4f8;
-    color: #1e293b;
+    background: rgba(255, 255, 255, 0.15);
+    color: #f0f4f8;
     font-weight: 500;
 }
 
@@ -113,8 +113,8 @@ main {
 
 .date-input input:focus {
     outline: none;
-    border-color: #1e293b;
-    background: #f0f4f8;
+    border-color: #f0f4f8;
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .date-input input:hover {
@@ -123,8 +123,8 @@ main {
 
 .generate-btn {
     padding: 1rem 2.5rem;
-    background: #2563eb;
-    color: #f0f4f8;
+    background: #f0f4f8;
+    color: #2563eb;
     border: none;
     border-radius: 12px;
     font-size: 1.05rem;
@@ -172,7 +172,7 @@ main {
 }
 
 .loading p {
-    color: #1e293b;
+    color: #f0f4f8;
     font-size: 1rem;
     font-weight: 500;
 }
@@ -196,13 +196,13 @@ main {
 }
 
 .section-header h3 {
-    color: #1e293b;
+    color: #f0f4f8;
     font-size: 1.25rem;
     font-weight: 600;
 }
 
 .section-header h2 {
-    color: #1e293b;
+    color: #f0f4f8;
     font-size: 1.4rem;
     font-weight: 600;
 }
@@ -210,8 +210,8 @@ main {
 .toggle-btn {
     padding: 6px 14px;
     background: transparent;
-    color: #1e293b;
-    border: 1px solid #2563eb;
+    color: #f0f4f8;
+    border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 6px;
     cursor: pointer;
     font-size: 0.85rem;
@@ -241,7 +241,7 @@ main {
     font-family: 'SF Mono', 'Monaco', monospace;
     font-size: 0.9rem;
     line-height: 1.6;
-    color: #1e293b;
+    color: rgba(240, 244, 248, 0.9);
     white-space: pre-wrap;
     word-wrap: break-word;
 }
@@ -304,16 +304,16 @@ main {
 }
 
 .report-content h3 {
-    color: #1e293b;
+    color: #f0f4f8;
     margin: 1.5rem 0 1rem;
     font-size: 1.3rem;
     font-weight: 600;
     padding-bottom: 0.5rem;
-    border-bottom: 2px solid #2563eb;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 .report-content h4 {
-    color: #1e293b;
+    color: #f0f4f8;
     margin: 1.25rem 0 0.75rem;
     font-size: 1.1rem;
     font-weight: 600;
@@ -321,7 +321,7 @@ main {
 
 .report-content p {
     margin-bottom: 1rem;
-    color: #1e293b;
+    color: rgba(240, 244, 248, 0.95);
     line-height: 1.75;
 }
 
