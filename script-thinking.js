@@ -248,14 +248,59 @@ function copyReport() {
     });
 }
 
+// 将HTML内容转换为Markdown
+function htmlToMarkdown(html) {
+    let markdown = html;
+    
+    // 转换标题
+    markdown = markdown.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n');
+    markdown = markdown.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n');
+    markdown = markdown.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n');
+    markdown = markdown.replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n\n');
+    
+    // 转换段落
+    markdown = markdown.replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n');
+    
+    // 转换换行
+    markdown = markdown.replace(/<br\s*\/?>/gi, '\n');
+    
+    // 移除其他HTML标签
+    markdown = markdown.replace(/<[^>]+>/g, '');
+    
+    // 转换HTML实体
+    markdown = markdown.replace(/&nbsp;/g, ' ');
+    markdown = markdown.replace(/&lt;/g, '<');
+    markdown = markdown.replace(/&gt;/g, '>');
+    markdown = markdown.replace(/&amp;/g, '&');
+    markdown = markdown.replace(/&quot;/g, '"');
+    
+    // 清理多余的空行
+    markdown = markdown.replace(/\n{3,}/g, '\n\n');
+    
+    return markdown.trim();
+}
+
 // 下载报告
 function downloadReport() {
-    const content = finalContent || document.getElementById('reportContent').innerText;
+    // 获取原始内容或格式化的内容
+    const htmlContent = document.getElementById('reportContent').innerHTML;
+    const markdownContent = htmlToMarkdown(htmlContent);
+    
     const date = document.getElementById('date').value;
-    const filename = `股市分析报告_${date}.txt`;
+    const filename = `上市公司日报_${date}.md`;
+    
+    // 添加标题和元信息
+    const fullContent = `# 中国上市公司重大事件分析报告\n\n` +
+                       `**生成日期**: ${new Date().toLocaleDateString('zh-CN')}\n` +
+                       `**数据日期**: ${date}\n` +
+                       `**技术支持**: GPT-5-thinking-all\n\n` +
+                       `---\n\n` +
+                       markdownContent + 
+                       `\n\n---\n\n` +
+                       `*本报告由AI自动生成，仅供参考。投资决策请以官方信息为准。*`;
     
     // 创建Blob对象
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([fullContent], { type: 'text/markdown;charset=utf-8' });
     
     // 创建下载链接
     const url = URL.createObjectURL(blob);

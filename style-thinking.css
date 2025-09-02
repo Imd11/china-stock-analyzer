@@ -9,11 +9,18 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
     padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .container {
     max-width: 1200px;
+    width: 100%;
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 40px);
 }
 
 header {
@@ -33,29 +40,15 @@ header p {
     opacity: 0.95;
 }
 
-.model-info {
-    margin-top: 1rem;
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-}
-
-.model-badge, .feature-badge {
+.tech-info {
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.15);
     display: inline-block;
-    padding: 5px 15px;
+    padding: 6px 20px;
     border-radius: 20px;
-    font-size: 0.9rem;
-    font-weight: 600;
-}
-
-.model-badge {
-    background: rgba(255, 255, 255, 0.2);
-    border: 2px solid rgba(255, 255, 255, 0.4);
-}
-
-.feature-badge {
-    background: rgba(255, 200, 0, 0.3);
-    border: 2px solid rgba(255, 200, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 main {
@@ -67,15 +60,15 @@ main {
 
 .input-section {
     display: flex;
-    gap: 1rem;
+    flex-direction: column;
+    gap: 1.5rem;
     align-items: center;
     margin-bottom: 2rem;
-    flex-wrap: wrap;
 }
 
 .date-input {
-    flex: 1;
-    min-width: 200px;
+    width: 100%;
+    max-width: 400px;
 }
 
 .date-input label {
@@ -101,15 +94,17 @@ main {
 }
 
 .generate-btn {
-    padding: 0.75rem 2rem;
+    padding: 1rem 3rem;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border: none;
-    border-radius: 10px;
-    font-size: 1rem;
+    border-radius: 12px;
+    font-size: 1.1rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s;
+    min-width: 200px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
 .generate-btn:hover {
@@ -328,7 +323,9 @@ footer {
     text-align: center;
     padding: 2rem 0;
     color: rgba(255, 255, 255, 0.9);
-    margin-top: 2rem;
+    margin-top: auto;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 20px 20px 0 0;
 }
 
 /* 响应式设计 */
