@@ -1,5 +1,5 @@
 export const config = {
-  runtime: 'nodejs20.x',
+  runtime: 'nodejs',
   maxDuration: 300, // 5分钟超时
 };
 
