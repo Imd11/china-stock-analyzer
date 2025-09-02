@@ -55,6 +55,7 @@ async function generateReport() {
     thinkingContent = '';
     finalContent = '';
     isThinkingPhase = true;
+    accumulatedBuffer = ''; // 重置缓冲区
     
     showLoading();
     hideResults();
@@ -244,58 +245,92 @@ class ContentSeparator {
 // 全局内容分离器
 const contentSeparator = new ContentSeparator();
 
+// 累积缓冲区，用于更准确的检测
+let accumulatedBuffer = '';
+
 // 处理每个数据块
 function processChunk(chunk) {
-    // 将所有内容都添加到思考内容中（用于完整记录）
-    thinkingContent += chunk;
-    
     if (isThinkingPhase) {
+        // 思考阶段：只添加到思考内容
+        thinkingContent += chunk;
+        accumulatedBuffer += chunk;
         updateThinkingContent();
         
-        // GPT-5-thinking-all的官方格式检测
-        // 思考阶段特征：以 > 开头的行
-        const isThinkingChunk = chunk.startsWith('>') || chunk.includes('\n>');
+        // 需要累积一定内容才能准确判断（避免小chunk误判）
+        if (accumulatedBuffer.length < 50) {
+            return; // 等待更多内容
+        }
         
-        // 检测思考结束标志
-        const thoughtEndMarkers = [
-            '*Thought for',  // 思考时间标记
-            '以下是',        // 报告开始的常见标志
-            '---\n',         // Markdown分隔线
-            '###',           // Markdown标题
-            '##',            // Markdown标题
-            '【一、',        // 中文报告格式
-            '【市场数据',
-            '上证指数：',
-            '深证成指：'
+        // GPT-5-thinking-all的格式检测
+        // 检查累积内容的最后部分
+        const recentContent = accumulatedBuffer.slice(-200); // 检查最近200字符
+        
+        // 更严格的思考阶段检测
+        const hasThinkingMarkers = recentContent.includes('>') || 
+                                  recentContent.includes('search(') ||
+                                  recentContent.includes('Thought for');
+        
+        // 更严格的报告开始检测（组合条件）
+        const strongReportMarkers = [
+            '\n以下是**',     // 加粗的"以下是"
+            '\n以下是\n',     // 独立行的"以下是"
+            '\n---\n',        // 独立的分隔线
+            '\n## ',          // 新行开始的二级标题
+            '\n### ',         // 新行开始的三级标题
+            '\n【一、市场数据', // 明确的报告结构
+            '\n上证指数：',    // 明确的数据行
+            '*Thought for'    // 思考时间标记（之后通常是报告）
         ];
         
-        // 检查是否包含报告开始标记
-        const hasReportStart = thoughtEndMarkers.some(marker => chunk.includes(marker));
+        // 检查强标记
+        let foundStrongMarker = false;
+        for (const marker of strongReportMarkers) {
+            if (accumulatedBuffer.includes(marker)) {
+                foundStrongMarker = true;
+                
+                // 特殊处理：如果找到思考时间标记，等待下一个chunk
+                if (marker === '*Thought for') {
+                    console.log('发现思考时间标记，准备切换到报告');
+                    // 标记下一个非思考chunk将是报告
+                    thinkingContent += ' [思考结束]';
+                } else {
+                    console.log('检测到强报告标记:', marker);
+                    console.log('思考内容总长度:', thinkingContent.length);
+                    
+                    // 找到标记位置，分割内容
+                    const markerIndex = accumulatedBuffer.indexOf(marker);
+                    const reportStartContent = accumulatedBuffer.substring(markerIndex);
+                    
+                    isThinkingPhase = false;
+                    showResultSection();
+                    showStatus('正在生成最终报告...');
+                    
+                    // 只将报告部分添加到finalContent
+                    finalContent = reportStartContent;
+                    updateFinalContent();
+                    
+                    // 清空缓冲区
+                    accumulatedBuffer = '';
+                }
+                break;
+            }
+        }
         
-        // 如果当前chunk不是思考格式且包含报告标记，切换到报告阶段
-        if (!isThinkingChunk && hasReportStart) {
-            console.log('检测到GPT-5报告开始');
-            console.log('最后的思考内容长度:', thinkingContent.length);
-            console.log('报告开始内容:', chunk.substring(0, 100));
-            
-            isThinkingPhase = false;
-            showResultSection();
-            showStatus('正在生成最终报告...');
-            
-            // 将当前chunk作为报告的开始
-            finalContent += chunk;
-            updateFinalContent();
-        } else if (thinkingContent.includes('*Thought for') && !isThinkingChunk) {
-            // 如果已经出现过思考时间标记，且当前不是思考格式，也切换
-            console.log('思考阶段结束，切换到报告');
-            isThinkingPhase = false;
-            showResultSection();
-            showStatus('正在生成最终报告...');
-            finalContent += chunk;
-            updateFinalContent();
+        // 如果累积内容过长还没切换，检查是否已经不是思考格式
+        if (!foundStrongMarker && accumulatedBuffer.length > 500 && !hasThinkingMarkers) {
+            console.log('长内容且无思考标记，可能已是报告');
+            const lastNewline = accumulatedBuffer.lastIndexOf('\n');
+            if (lastNewline > 0) {
+                isThinkingPhase = false;
+                showResultSection();
+                showStatus('正在生成最终报告...');
+                finalContent = accumulatedBuffer.substring(lastNewline + 1);
+                updateFinalContent();
+                accumulatedBuffer = '';
+            }
         }
     } else {
-        // 报告阶段：后续内容都是报告
+        // 报告阶段：只添加到最终内容
         finalContent += chunk;
         updateFinalContent();
     }
@@ -345,7 +380,56 @@ function formatFinalContent(content) {
 function finalizContent() {
     const reportContent = document.getElementById('reportContent');
     
-    // 如果没有最终内容，将所有思考内容作为报告（去掉思考标记）
+    // 如果没有最终内容但有累积缓冲区，尝试从中提取报告
+    if (!finalContent && accumulatedBuffer) {
+        console.log('尝试从累积缓冲区提取报告');
+        
+        // 查找报告开始的位置
+        const reportMarkers = [
+            '\n以下是', '以下是',
+            '\n---\n', '---\n',
+            '\n## ', '## ',
+            '\n### ', '### ',
+            '*Thought for'
+        ];
+        
+        let reportStartIndex = -1;
+        let foundMarker = '';
+        
+        for (const marker of reportMarkers) {
+            const index = accumulatedBuffer.indexOf(marker);
+            if (index !== -1 && (reportStartIndex === -1 || index < reportStartIndex)) {
+                reportStartIndex = index;
+                foundMarker = marker;
+            }
+        }
+        
+        if (reportStartIndex !== -1) {
+            // 找到报告开始位置
+            console.log('找到报告标记:', foundMarker, '位置:', reportStartIndex);
+            
+            // 如果是思考时间标记，找到它之后的内容
+            if (foundMarker === '*Thought for') {
+                const afterThought = accumulatedBuffer.indexOf('\n', reportStartIndex);
+                if (afterThought !== -1) {
+                    finalContent = accumulatedBuffer.substring(afterThought + 1).trim();
+                }
+            } else {
+                finalContent = accumulatedBuffer.substring(reportStartIndex).trim();
+            }
+            
+            // 更新思考内容（去掉报告部分）
+            thinkingContent = accumulatedBuffer.substring(0, reportStartIndex);
+        } else {
+            // 没找到明确标记，使用整个内容
+            console.log('未找到明确报告标记，使用全部内容');
+            finalContent = accumulatedBuffer;
+        }
+        
+        showResultSection();
+    }
+    
+    // 如果还是没有最终内容，使用思考内容
     if (!finalContent && thinkingContent) {
         console.log('使用思考内容作为报告，内容长度:', thinkingContent.length);
         finalContent = thinkingContent;
