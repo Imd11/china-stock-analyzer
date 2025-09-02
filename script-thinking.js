@@ -135,7 +135,7 @@ async function callOpenRouterAPIStream(prompt) {
                     
                     if (data === '[DONE]') {
                         console.log('流式响应完成');
-                        hideStatus();
+                        finalizContent();
                         break;
                     }
                     
@@ -155,6 +155,9 @@ async function callOpenRouterAPIStream(prompt) {
         console.log('思考内容长度:', thinkingContent.length);
         console.log('最终内容长度:', finalContent.length);
         
+        // 确保内容被正确处理
+        finalizContent();
+        
     } catch (error) {
         console.error('API 调用详细错误:', error);
         throw error;
@@ -163,15 +166,28 @@ async function callOpenRouterAPIStream(prompt) {
 
 // 处理每个数据块
 function processChunk(chunk) {
-    // 检测是否是思考内容的结束
-    // GPT-5的思考过程通常以特定模式结束
+    // 更智能的内容分离逻辑
     if (isThinkingPhase) {
-        // 检查是否包含典型的报告开始标记
-        if (chunk.includes('【一、市场数据部分】') || 
-            chunk.includes('上证指数：') ||
-            chunk.includes('## 【') ||
-            (thinkingContent.length > 500 && chunk.includes('【'))) {
+        // 检查多种可能的报告开始标记
+        const reportMarkers = [
+            '【一、市场数据部分】',
+            '【市场数据部分】',
+            '上证指数：',
+            '深证成指：',
+            '## 【',
+            '### 【',
+            '中国上市公司',
+            '市场数据：'
+        ];
+        
+        // 检查是否包含报告标记，或者思考内容已经很长了
+        const hasReportMarker = reportMarkers.some(marker => chunk.includes(marker));
+        const isLongThinking = thinkingContent.length > 1000 && chunk.includes('【');
+        const hasDatePattern = /\d{4}年\d{1,2}月\d{1,2}日/.test(chunk);
+        
+        if (hasReportMarker || isLongThinking || (thinkingContent.length > 2000 && hasDatePattern)) {
             // 切换到最终内容阶段
+            console.log('切换到最终内容阶段，标记:', chunk.substring(0, 50));
             isThinkingPhase = false;
             finalContent += chunk;
             updateFinalContent();
@@ -232,7 +248,20 @@ function formatFinalContent(content) {
 // 完成内容处理
 function finalizContent() {
     const reportContent = document.getElementById('reportContent');
-    reportContent.innerHTML = formatFinalContent(finalContent);
+    
+    // 如果没有最终内容但有思考内容，将思考内容作为最终内容
+    if (!finalContent && thinkingContent) {
+        console.log('警告：没有检测到最终内容，使用思考内容作为报告');
+        finalContent = thinkingContent;
+        showResultSection();
+    }
+    
+    if (finalContent) {
+        reportContent.innerHTML = formatFinalContent(finalContent);
+    } else {
+        reportContent.innerHTML = '<p style="color: #ef4444;">生成报告失败，请重试。</p>';
+    }
+    
     hideStatus();
 }
 
