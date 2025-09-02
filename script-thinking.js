@@ -166,37 +166,21 @@ async function callOpenRouterAPIStream(prompt) {
 
 // 处理每个数据块
 function processChunk(chunk) {
-    // 更智能的内容分离逻辑
+    // 简化的内容处理：前面少量内容作为思考过程，其余作为最终报告
     if (isThinkingPhase) {
-        // 检查多种可能的报告开始标记
-        const reportMarkers = [
-            '【一、市场数据部分】',
-            '【市场数据部分】',
-            '上证指数：',
-            '深证成指：',
-            '## 【',
-            '### 【',
-            '中国上市公司',
-            '市场数据：'
-        ];
+        thinkingContent += chunk;
+        updateThinkingContent();
         
-        // 检查是否包含报告标记，或者思考内容已经很长了
-        const hasReportMarker = reportMarkers.some(marker => chunk.includes(marker));
-        const isLongThinking = thinkingContent.length > 1000 && chunk.includes('【');
-        const hasDatePattern = /\d{4}年\d{1,2}月\d{1,2}日/.test(chunk);
-        
-        if (hasReportMarker || isLongThinking || (thinkingContent.length > 2000 && hasDatePattern)) {
-            // 切换到最终内容阶段
-            console.log('切换到最终内容阶段，标记:', chunk.substring(0, 50));
+        // 思考内容达到一定长度后，后续内容都作为最终报告
+        if (thinkingContent.length > 500) {
+            console.log('切换到最终内容阶段，思考内容长度:', thinkingContent.length);
             isThinkingPhase = false;
-            finalContent += chunk;
-            updateFinalContent();
             showResultSection();
             showStatus('正在生成最终报告...');
-        } else {
-            // 仍在思考阶段
-            thinkingContent += chunk;
-            updateThinkingContent();
+            
+            // 将当前chunk也添加到最终内容
+            finalContent += chunk;
+            updateFinalContent();
         }
     } else {
         // 最终内容阶段
@@ -249,15 +233,27 @@ function formatFinalContent(content) {
 function finalizContent() {
     const reportContent = document.getElementById('reportContent');
     
-    // 如果没有最终内容但有思考内容，将思考内容作为最终内容
+    // 如果没有最终内容，将所有思考内容作为报告（去掉思考标记）
     if (!finalContent && thinkingContent) {
-        console.log('警告：没有检测到最终内容，使用思考内容作为报告');
+        console.log('使用思考内容作为报告，内容长度:', thinkingContent.length);
         finalContent = thinkingContent;
         showResultSection();
     }
     
     if (finalContent) {
-        reportContent.innerHTML = formatFinalContent(finalContent);
+        // 清理内容，移除明显的思考过程标记
+        let cleanedContent = finalContent
+            .replace(/^[\s\S]*?(?=【|上证指数|深证成指|中国上市公司|市场数据)/m, '') // 移除开头的思考内容
+            .replace(/^.*?思考.*?\n/gm, '') // 移除包含"思考"的行
+            .replace(/^.*?分析.*?\n/gm, '') // 移除包含"分析"的纯分析行
+            .trim();
+        
+        // 如果清理后内容太短，使用原始内容
+        if (cleanedContent.length < 500) {
+            cleanedContent = finalContent;
+        }
+        
+        reportContent.innerHTML = formatFinalContent(cleanedContent);
     } else {
         reportContent.innerHTML = '<p style="color: #ef4444;">生成报告失败，请重试。</p>';
     }
