@@ -140,26 +140,16 @@ async function callOpenRouterAPIStream(prompt) {
                         const parsed = JSON.parse(data);
                         const delta = parsed.choices?.[0]?.delta || {};
                         
-                        // 调试日志：查看实际的流数据
-                        if (delta.reasoning || delta.content) {
-                            console.log('Stream data:', {
-                                hasReasoning: !!delta.reasoning,
-                                hasContent: !!delta.content,
-                                reasoningPreview: delta.reasoning ? delta.reasoning.substring(0, 50) + '...' : null,
-                                contentPreview: delta.content ? delta.content.substring(0, 50) + '...' : null
-                            });
-                        }
+                        // 调试：确认没有reasoning流（Tu-zi API问题）
+                        // 实际测试显示Tu-zi API的"gpt-5-thinking-all"没有reasoning流
+                        // 所有内容都在content流中，需要手动分离
                         
-                        // reasoning 流：AI的真实思考过程，直接放到思考区域
+                        // reasoning 流：Tu-zi API不提供，跳过
                         if (delta.reasoning) {
+                            // 理论上应该有，但Tu-zi API没有实现
+                            console.warn('发现reasoning流数据（不应该出现）:', delta.reasoning);
                             thinkingContent += delta.reasoning;
                             updateThinkingContent();
-                            
-                            // 如果思考区域还未显示，现在显示它
-                            if (document.getElementById('thinkingSection').style.display === 'none') {
-                                showThinkingSection();
-                                showStatus('AI正在思考分析...');
-                            }
                         }
                         
                         // content 流：需要智能识别内容类型
