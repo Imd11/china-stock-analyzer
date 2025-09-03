@@ -94,7 +94,7 @@ async function callOpenRouterAPIStream(prompt) {
                         content: prompt
                     }
                 ],
-                temperature: 0.1,
+                temperature: 0.7,
                 max_tokens: 8000,
                 stream: true
             })
