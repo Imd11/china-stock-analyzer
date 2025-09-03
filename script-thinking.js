@@ -153,9 +153,24 @@ async function callOpenRouterAPIStream(prompt) {
                         if (delta.content) {
                             const content = delta.content;
                             
-                            // 检测是否应该放在思考区域
-                            if (isThinkingContent(content)) {
+                            // 使用累积buffer来更准确地识别内容类型
+                            // 检查最近的内容是否包含search()或其他应该在思考区的内容
+                            const recentContent = (finalContent + content).slice(-200);
+                            const shouldBeInThinking = isThinkingContent(content) || 
+                                                       recentContent.includes('> search(') ||
+                                                       recentContent.includes('search("');
+                            
+                            if (shouldBeInThinking) {
                                 // 这是搜索查询、URL引用或其他思考过程，应该放到思考区域
+                                // 如果之前有误放到finalContent的search内容，移除它
+                                if (finalContent.includes('> search(') || finalContent.includes('search("')) {
+                                    const searchMatch = finalContent.match(/(>?\s*search\([^)]+\).*?)$/s);
+                                    if (searchMatch) {
+                                        thinkingContent += '\n🔍 ' + searchMatch[1];
+                                        finalContent = finalContent.replace(searchMatch[1], '');
+                                    }
+                                }
+                                
                                 if (content.includes('search(')) {
                                     thinkingContent += '\n🔍 ' + content;
                                 } else if (content.includes('http')) {
@@ -248,34 +263,54 @@ function isThinkingContent(content) {
 function cleanReportContent(content) {
     let cleaned = content;
     
+    // 首先移除search()函数调用和相关内容
+    cleaned = cleaned.replace(/>\s*search\([^)]+\)/g, '');
+    cleaned = cleaned.replace(/search\([^)]+\)/g, '');
+    
+    // 移除包含空值的字段（匹配 "- **字段名**：" 或 "- **字段名**：\n"）
+    cleaned = cleaned.replace(/- \*\*[^*]+\*\*：\s*(?=\n|$)/g, '');
+    
+    // 移除只有标题没有内容的板块（包括重复的四、五部分）
+    // 匹配从"## 四、热点板块部分"或"## 五、异动风险部分"开始，到下一个"##"或"---"或文档结尾
+    cleaned = cleaned.replace(/## (四|五)、[^\n]+\n+(?:### \*\*[^*]+\*\*\n+(?:- \*\*[^*]+\*\*：\s*\n?)*)+(?=##|---|$)/g, '');
+    
+    // 移除重复的section标题
+    const sections = ['## 四、热点板块部分', '## 五、异动风险部分'];
+    sections.forEach(section => {
+        const regex = new RegExp(`(${section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})([\\s\\S]*?)(?=${section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}|$)`, 'g');
+        const matches = [...cleaned.matchAll(regex)];
+        if (matches.length > 1) {
+            // 只保留第一个有内容的版本
+            let firstValid = matches.find(m => m[2].trim().length > 50);
+            if (firstValid) {
+                // 移除其他所有版本
+                matches.forEach((m, i) => {
+                    if (m !== firstValid) {
+                        cleaned = cleaned.replace(m[0], '');
+                    }
+                });
+            }
+        }
+    });
+    
     // 移除空白的公司模板
-    cleaned = cleaned.replace(/\*\*公司名称\*\*：\s*\n/g, '');
-    cleaned = cleaned.replace(/\*\*公司名称\*\*：\s*$/g, '');
+    cleaned = cleaned.replace(/\*\*公司名称\*\*：\s*(?=\n|$)/g, '');
+    cleaned = cleaned.replace(/### \*\*[^*]+\*\*\s*\n+(?:- \*\*[^:]+\*\*：\s*\n?)*---/g, '---');
     
-    // 移除只有标题没有内容的字段
-    cleaned = cleaned.replace(/- \*\*事件类型\*\*：\s*\n/g, '');
-    cleaned = cleaned.replace(/- \*\*事件详情\*\*：\s*\n/g, '');
-    cleaned = cleaned.replace(/- \*\*关键数据\*\*：\s*\n/g, '');
-    cleaned = cleaned.replace(/- \*\*时间节点\*\*：\s*\n/g, '');
-    cleaned = cleaned.replace(/- \*\*市场表现\*\*：\s*\n/g, '');
-    cleaned = cleaned.replace(/- \*\*公告时间\*\*：\s*\n/g, '');
-    cleaned = cleaned.replace(/- \*\*信息来源\*\*：\s*\n/g, '');
-    
-    // 移除空白的板块模板
-    cleaned = cleaned.replace(/\*\*板块名称\*\*：\s*\n/g, '');
-    cleaned = cleaned.replace(/- \*\*涨幅\*\*：\s*\n/g, '');
-    cleaned = cleaned.replace(/- \*\*成交额\*\*：\s*\n/g, '');
-    cleaned = cleaned.replace(/- \*\*换手率\*\*：\s*15%\s*\n/g, '');
-    
-    // 移除重复的分隔线
-    cleaned = cleaned.replace(/---\s*\n\s*---/g, '---');
-    cleaned = cleaned.replace(/---\s*\n\s*\n\s*---/g, '---');
+    // 移除连续的分隔线
+    cleaned = cleaned.replace(/(?:---\s*\n\s*)+/g, '---\n');
     
     // 移除末尾的不完整内容
-    cleaned = cleaned.replace(/\*\*公司：\s*$/g, '');
-    cleaned = cleaned.replace(/\*\*公司\s*$/g, '');
+    cleaned = cleaned.replace(/\*\*公司.*$/g, '');
+    cleaned = cleaned.replace(/### \*\*.*$/g, '');
     
-    return cleaned;
+    // 移除多余的空行
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+    
+    // 如果最后是空的section，移除它
+    cleaned = cleaned.replace(/## [^#]+(?:\n+### [^#]+)*\s*$/g, '');
+    
+    return cleaned.trim();
 }
 
 // 更新思考内容显示
