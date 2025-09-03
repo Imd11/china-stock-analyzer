@@ -5,7 +5,6 @@ const PROXY_URL = 'http://127.0.0.1:3001';
 // 全局变量存储内容
 let thinkingContent = '';
 let finalContent = '';
-let isThinkingPhase = true;
 
 document.addEventListener('DOMContentLoaded', function() {
     const dateInput = document.getElementById('date');
@@ -137,13 +136,29 @@ async function callOpenRouterAPIStream(prompt) {
                     try {
                         const parsed = JSON.parse(data);
                         const delta = parsed.choices?.[0]?.delta || {};
-                        // 优先接收 reasoning 流，展示为“思考过程”
-                        if (delta.reasoning && isThinkingPhase) {
-                            processChunk(delta.reasoning);
+                        
+                        // reasoning 流：AI的真实思考过程，直接放到思考区域
+                        if (delta.reasoning) {
+                            thinkingContent += delta.reasoning;
+                            updateThinkingContent();
+                            
+                            // 如果思考区域还未显示，现在显示它
+                            if (document.getElementById('thinkingSection').style.display === 'none') {
+                                showThinkingSection();
+                                showStatus('AI正在思考分析...');
+                            }
                         }
-                        // 同时接收 content 流；当遇到 [REPORT_START] 会自动切换到报告区域
+                        
+                        // content 流：最终的结构化报告，直接放到报告区域
                         if (delta.content) {
-                            processChunk(delta.content);
+                            finalContent += delta.content;
+                            updateFinalContent();
+                            
+                            // 如果报告区域还未显示，现在显示它
+                            if (document.getElementById('resultSection').style.display === 'none') {
+                                showResultSection();
+                                showStatus('正在生成最终报告...');
+                            }
                         }
                     } catch (e) {
                         // Ignore parsing errors
@@ -157,295 +172,13 @@ async function callOpenRouterAPIStream(prompt) {
     }
 }
 
-// 智能分离内容函数 - 备用机制
-function intelligentSeparation(content) {
-    console.log('尝试智能分离内容...');
-    
-    // 备用分隔符列表 - 优先寻找中文报告标识
-    const fallbackSeparators = [
-        '### 【一、市场数据部分】',
-        '## 【市场数据部分】',
-        '### 【市场数据部分】',
-        '# 【市场数据部分】',
-        '【一、市场数据部分】',
-        '【市场数据部分】',
-        '上证指数：',
-        '## 市场数据',
-        '# 市场数据',
-        '**市场数据**',
-        '=== 市场数据 ===',
-        '## 【一、',
-        '### 【一、',
-        '【一、',
-        '今日股市',
-        '股市分析',
-        '市场回顾'
-    ];
-    
-    for (let separator of fallbackSeparators) {
-        const index = content.indexOf(separator);
-        if (index !== -1) {
-            console.log(`找到备用分隔符: ${separator}`);
-            return {
-                thinking: content.substring(0, index).trim(),
-                report: content.substring(index).trim(),
-                method: `备用分隔符: ${separator}`
-            };
-        }
-    }
-    
-    // 寻找中文报告内容的特征模式
-    const lines = content.split('\n');
-    const chineseReportPatterns = [
-        /^上证指数：.*[0-9]+.*[%％]/,
-        /^深证成指：.*[0-9]+.*[%％]/,
-        /^创业板指：.*[0-9]+.*[%％]/,
-        /^北向资金：.*[0-9]+.*亿元/,
-        /^南向资金：.*[0-9]+.*亿元/,
-        /^【.*】.*[0-9]+/,
-        /^## 【.*】/,
-        /^### 【.*】/,
-        /^.*成交额：.*万亿元/,
-        /^.*涨跌幅.*%/
-    ];
-    
-    // 从内容末尾开始向前寻找，因为报告通常在后面
-    for (let i = lines.length - 1; i >= Math.floor(lines.length * 0.3); i--) {
-        const line = lines[i].trim();
-        
-        // 检查是否匹配中文报告模式
-        for (let pattern of chineseReportPatterns) {
-            if (pattern.test(line)) {
-                // 找到可能的报告起始点，向前寻找更合适的分割点
-                let reportStart = i;
-                
-                // 向前寻找段落开始
-                for (let j = i - 1; j >= 0; j--) {
-                    const prevLine = lines[j].trim();
-                    if (prevLine === '' || prevLine.includes('💭') || prevLine.includes('🔍')) {
-                        reportStart = j + 1;
-                        break;
-                    }
-                }
-                
-                console.log(`基于中文报告模式分离，匹配行: ${line}`);
-                return {
-                    thinking: lines.slice(0, reportStart).join('\n').trim(),
-                    report: lines.slice(reportStart).join('\n').trim(),
-                    method: '中文报告模式识别'
-                };
-            }
-        }
-    }
-    
-    // 如果没有找到模式，尝试寻找大段中文内容
-    for (let i = Math.floor(lines.length * 0.4); i < lines.length - 5; i++) {
-        const line = lines[i].trim();
-        
-        // 检查是否是大段中文内容的开始
-        if (line.length > 20 && /^[\u4e00-\u9fa5]/.test(line) && 
-            (line.includes('指数') || line.includes('市场') || line.includes('股票') || 
-             line.includes('公司') || line.includes('政策') || line.includes('板块'))) {
-            
-            // 检查后续几行是否也是中文内容
-            let chineseLineCount = 0;
-            for (let j = i; j < Math.min(i + 10, lines.length); j++) {
-                const checkLine = lines[j].trim();
-                if (checkLine.length > 10 && /[\u4e00-\u9fa5]/.test(checkLine)) {
-                    chineseLineCount++;
-                }
-            }
-            
-            if (chineseLineCount >= 3) {
-                console.log(`基于中文内容特征分离，分离点: ${line}`);
-                return {
-                    thinking: lines.slice(0, i).join('\n').trim(),
-                    report: lines.slice(i).join('\n').trim(),
-                    method: '中文内容特征识别'
-                };
-            }
-        }
-    }
-    
-    // 最后的分离方法：按固定比例分离，但确保分离点不在英文内容中
-    const contentLength = content.length;
-    let cutPoint = Math.floor(contentLength * 0.6);
-    
-    // 向后查找到合适的中文内容开始点
-    const searchText = content.substring(cutPoint);
-    const chineseMatch = searchText.match(/[\u4e00-\u9fa5]{10,}/);
-    if (chineseMatch) {
-        cutPoint += chineseMatch.index;
-    }
-    
-    console.log('使用优化的固定比例分离');
-    return {
-        thinking: content.substring(0, cutPoint).trim(),
-        report: content.substring(cutPoint).trim(),
-        method: '优化的固定比例分离'
-    };
-}
+// 已移除以下不再需要的函数：
+// - intelligentSeparation: 不再需要内容分离
+// - cleanThinkingContent: AI的思考内容直接显示
+// - sanitizeThinkingChunk: AI的原生输出直接使用
 
-// 清理思考内容，移除提示词重复
-function cleanThinkingContent(rawThinking) {
-    // 移除明显的提示词重复内容
-    const promptIndicators = [
-        '请基于下面的口令生成',
-        '【最高优先级指令】',
-        '中国上市公司新闻数据全面搜集口令',
-        '## 【角色】',
-        '你是一名拥有20年经验的顶级咨询专家',
-        '——————————————————————————————————————————-',
-        '【搜集要求】',
-        '【重点搜集方向】'
-    ];
-    
-    let cleanedContent = rawThinking;
-    
-    // 查找第一个不包含提示词指示器的段落
-    const lines = rawThinking.split('\n');
-    let startIndex = 0;
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        let containsPrompt = false;
-        
-        for (const indicator of promptIndicators) {
-            if (line.includes(indicator)) {
-                containsPrompt = true;
-                break;
-            }
-        }
-        
-        // 如果这一行不包含提示词内容，且不是空行，则从这里开始
-        if (!containsPrompt && line.length > 0) {
-            startIndex = i;
-            break;
-        }
-    }
-    
-    // 如果找到了真正的思考开始点，则从那里开始提取
-    if (startIndex > 0) {
-        cleanedContent = lines.slice(startIndex).join('\n');
-    }
-    
-    // 进一步清理：移除可能的search()函数调用显示
-    cleanedContent = cleanedContent.replace(/search\([^)]*\)/g, '');
-    cleanedContent = cleanedContent.replace(/💭 search\([^)]*\)/g, '');
-    
-    return cleanedContent.trim();
-}
-
-// 处理每个数据块
-function sanitizeThinkingChunk(chunk) {
-    // 去除三引号代码块（模型常把“search_query”以代码块形式输出）
-    let s = chunk.replace(/```[\s\S]*?```/g, '');
-    // 过滤典型的英文提示/免责声明/泛化措辞，避免污染思考区
-    const banPhrases = [
-        'I won\'t be able to guarantee accuracy',
-        'Given the constraints',
-        'Providing a transparent response',
-        'Proposing a broader scope',
-        'I can suggest',
-        'I\'ll offer a skeleton report',
-        'it\'s not possible to provide the exact 24-hour data',
-        'safest approach is to present the limitations'
-    ];
-    for (const p of banPhrases) {
-        s = s.replace(new RegExp(p, 'gi'), '');
-    }
-    // 删除显式JSON片段信号
-    s = s.replace(/\{\s*\"search_query\"[\s\S]*?\}\s*/g, '');
-    return s;
-}
-
-function processChunk(chunk) {
-    if (isThinkingPhase) {
-        const safeChunk = sanitizeThinkingChunk(chunk);
-        thinkingContent += safeChunk;
-        const separatorIndex = thinkingContent.indexOf('[REPORT_START]');
-        if (separatorIndex !== -1) {
-            isThinkingPhase = false;
-            const reportPart = thinkingContent.substring(separatorIndex + '[REPORT_START]'.length);
-            
-            // 清理思考内容，移除提示词重复
-            const rawThinking = thinkingContent.substring(0, separatorIndex);
-            thinkingContent = cleanThinkingContent(rawThinking);
-            
-            updateThinkingContent();
-            showResultSection();
-            showStatus('正在生成最终报告...');
-            finalContent = reportPart;
-            updateFinalContent();
-            console.log('检测到报告开始分隔符 [REPORT_START]');
-        } else {
-            // 早期启发式检测：无分隔符时，若检测到报告结构信号，提前切换到报告区
-            const heuristicIndex = detectReportStartIndex(thinkingContent);
-            if (heuristicIndex !== -1) {
-                isThinkingPhase = false;
-                const rawThinking = thinkingContent.substring(0, heuristicIndex);
-                const reportPart = thinkingContent.substring(heuristicIndex);
-                thinkingContent = cleanThinkingContent(rawThinking);
-                updateThinkingContent();
-                showResultSection();
-                showStatus('检测到报告结构，开始输出最终报告...');
-                finalContent = reportPart;
-                updateFinalContent();
-            } else {
-                // 长度阈值触发：若思考文本较长，尝试基于 intelligentSeparation 进行早切
-                if (thinkingContent.length > 1500) {
-                    const separated = intelligentSeparation(thinkingContent);
-                    if (separated.report && separated.report.length > 120) {
-                        isThinkingPhase = false;
-                        thinkingContent = cleanThinkingContent(separated.thinking);
-                        updateThinkingContent();
-                        showResultSection();
-                        showStatus('已根据内容特征切换到最终报告...');
-                        finalContent = separated.report;
-                        updateFinalContent();
-                    } else {
-                        updateThinkingContent();
-                    }
-                } else {
-                    updateThinkingContent();
-                }
-            }
-        }
-    } else {
-        finalContent += chunk;
-        updateFinalContent();
-    }
-}
-
-// 从原始聚合的文本中安全切割报告段（避免已清理后的思考内容覆盖原文）
-function thinkingContentOriginalSafeSlice(currentThinkingCleaned, cutIndexInOriginal) {
-    // 我们无法直接拿到原始未清理文本的引用，此处简单策略：
-    // 在切换到报告前，使用最近一次的 chunk 内容构造报告起点。
-    // 作为权衡：当启发式触发时，报告已在末尾附近开始，后续的增量会继续追加到 finalContent。
-    return '';
-}
-
-// 启发式检测报告起点（当模型未输出 [REPORT_START] 时）
-function detectReportStartIndex(content) {
-    // 借鉴 intelligentSeparation 的分隔符与中文特征，但更激进：一旦检测到明显的报告标题或关键行，就切换
-    const candidates = [
-        '### 【一、市场数据部分】', '## 【市场数据部分】', '### 【市场数据部分】', '【市场数据部分】',
-        '上证指数：', '深证成指：', '创业板指：', '恒生指数：',
-        '### 【', '## 【', '【一、', '【二、', '【三、', '【四、', '【五、',
-        'Final Report', 'FINAL REPORT', 'Analysis Report', '报告', '# 最终报告', '### 最终报告'
-    ];
-    let minIndex = -1;
-    for (const sep of candidates) {
-        const idx = content.indexOf(sep);
-        if (idx !== -1) {
-            // 避免误触发：要求这一信号出现在文本的后半段
-            if (idx > Math.floor(content.length * 0.35)) {
-                minIndex = (minIndex === -1) ? idx : Math.min(minIndex, idx);
-            }
-        }
-    }
-    return minIndex;
-}
+// 已移除processChunk、thinkingContentOriginalSafeSlice和detectReportStartIndex函数
+// 现在使用GPT-5-thinking-all的原生双流输出，不需要人为分离
 
 // 更新思考内容显示
 function updateThinkingContent() {
@@ -500,84 +233,28 @@ function formatFinalContent(content) {
 
 // 完成内容处理
 function finalizContent() {
+    // 移除流式显示的光标
     const reportContent = document.getElementById('reportContent');
-    
-    // 添加详细的调试信息
-    console.log('=== 调试信息 ===');
-    console.log('thinkingContent 长度:', thinkingContent.length);
-    console.log('finalContent 长度:', finalContent.length);
-    console.log('isThinkingPhase:', isThinkingPhase);
-    console.log('thinkingContent 最后200字符:', thinkingContent.slice(-200));
-    console.log('是否包含分隔符:', thinkingContent.includes('[REPORT_START]'));
-    console.log('分隔符位置:', thinkingContent.indexOf('[REPORT_START]'));
-    
-    if (finalContent) {
+    if (reportContent && finalContent) {
         reportContent.innerHTML = formatFinalContent(finalContent);
-    } else if (isThinkingPhase) {
-        console.error('AI failed to produce a report. The separator [REPORT_START] was not found.');
-        
-        // 如果有内容，尝试智能分离
-        if (thinkingContent && thinkingContent.length > 200) {
-            console.log('启用备用分离机制...');
-            const separated = intelligentSeparation(thinkingContent);
-            
-            if (separated.report && separated.report.length > 50) {
-                console.log(`智能分离成功，使用方法: ${separated.method}`);
-                
-                // 更新内容，并清理思考内容
-                thinkingContent = cleanThinkingContent(separated.thinking);
-                finalContent = separated.report;
-                isThinkingPhase = false;
-                
-                // 更新显示
-                updateThinkingContent();
-                // 确保结果区可见（fallback 分支之前未显式打开）
-                showResultSection();
-                reportContent.innerHTML = `
-                    <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
-                        <p style="margin: 0; color: #155724;">
-                            ✅ <strong>智能分离成功</strong> - 使用${separated.method}成功分离内容
-                        </p>
-                    </div>
-                    ${formatFinalContent(finalContent)}
-                `;
-                
-                // 滚动到报告区域
-                setTimeout(() => {
-                    document.getElementById('resultSection').scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'start' 
-                    });
-                }, 300);
-                
-                hideStatus();
-                return;
-            }
-        }
-        
-        // 显示更详细的错误信息和调试提示
-        reportContent.innerHTML = `
-            <div style="color: #ef4444; margin-bottom: 20px;">
-                <h3>调试信息</h3>
-                <p><strong>错误：</strong>AI未能生成格式化的报告。分隔符 [REPORT_START] 未找到。</p>
-                <p><strong>思考内容长度：</strong>${thinkingContent.length} 字符</p>
-                <p><strong>是否包含分隔符：</strong>${thinkingContent.includes('[REPORT_START]') ? '是' : '否'}</p>
-                <p><strong>备用分离：</strong>已尝试但失败</p>
-                <p><strong>解决方案：</strong>请打开F12控制台查看完整调试信息，或尝试重新生成报告。</p>
-            </div>
-            <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-top: 15px;">
-                <p><strong>AI响应的最后200字符：</strong></p>
-                <pre style="white-space: pre-wrap; font-size: 12px;">${thinkingContent.slice(-200)}</pre>
-            </div>
-        `;
-        
-        if (!thinkingContent) {
-           showThinkingSection();
-           document.getElementById('thinkingText').innerHTML = '<p>没有收到任何来自AI的输出。</p>';
-        }
-    } else {
-        reportContent.innerHTML = '<p style="color: #ef4444;">生成报告失败，请重试。</p>';
     }
+    
+    // 移除思考区域的任何临时标记
+    const thinkingText = document.getElementById('thinkingText');
+    if (thinkingText && thinkingContent) {
+        thinkingText.innerHTML = formatThinkingContent(thinkingContent);
+    }
+    
+    // 日志输出，方便调试
+    console.log('=== 生成完成 ===');
+    console.log('思考内容长度:', thinkingContent.length);
+    console.log('报告内容长度:', finalContent.length);
+    
+    // 如果没有收到任何内容，显示错误信息
+    if (!thinkingContent && !finalContent) {
+        reportContent.innerHTML = '<p style="color: #ef4444;">未收到AI响应，请检查网络连接后重试。</p>';
+    }
+    
     hideStatus();
 }
 
