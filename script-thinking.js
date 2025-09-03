@@ -94,7 +94,7 @@ async function callOpenRouterAPIStream(prompt) {
                         content: prompt
                     }
                 ],
-                temperature: 0.3,
+                temperature: 0.1,
                 max_tokens: 8000,
                 stream: true
             })
@@ -337,9 +337,32 @@ function cleanThinkingContent(rawThinking) {
 }
 
 // 处理每个数据块
+function sanitizeThinkingChunk(chunk) {
+    // 去除三引号代码块（模型常把“search_query”以代码块形式输出）
+    let s = chunk.replace(/```[\s\S]*?```/g, '');
+    // 过滤典型的英文提示/免责声明/泛化措辞，避免污染思考区
+    const banPhrases = [
+        'I won\'t be able to guarantee accuracy',
+        'Given the constraints',
+        'Providing a transparent response',
+        'Proposing a broader scope',
+        'I can suggest',
+        'I\'ll offer a skeleton report',
+        'it\'s not possible to provide the exact 24-hour data',
+        'safest approach is to present the limitations'
+    ];
+    for (const p of banPhrases) {
+        s = s.replace(new RegExp(p, 'gi'), '');
+    }
+    // 删除显式JSON片段信号
+    s = s.replace(/\{\s*\"search_query\"[\s\S]*?\}\s*/g, '');
+    return s;
+}
+
 function processChunk(chunk) {
     if (isThinkingPhase) {
-        thinkingContent += chunk;
+        const safeChunk = sanitizeThinkingChunk(chunk);
+        thinkingContent += safeChunk;
         const separatorIndex = thinkingContent.indexOf('[REPORT_START]');
         if (separatorIndex !== -1) {
             isThinkingPhase = false;
@@ -742,6 +765,12 @@ function createPrompt(date) {
 **统一引导原则：**
 
 **以价值创造为核心，以数据精度为标准，以变化信号为重点，全面感知过去24小时内一切可能影响价值认知、价值创造、价值实现的信息，让每个数据都成为解读价值密码的钥匙。**
+
+【禁止输出（非常重要）】
+- 禁止任何道歉/拒绝/能力限制的说明，不得出现“无法满足”“不能保证准确”“建议放宽约束”等措辞；
+- 禁止出现英文段落、代码块、JSON（如 search_query），不得输出工具参数或占位符；
+- 禁止复述本任务说明、格式、分节标题；
+- 若信息不足，也必须完成结构化输出，不得空部分，可用“未披露/暂无”四字简明标记；
 
 ## 【搜集格式要求】
 
