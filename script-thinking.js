@@ -149,15 +149,31 @@ async function callOpenRouterAPIStream(prompt) {
                             }
                         }
                         
-                        // content 流：最终的结构化报告，直接放到报告区域
+                        // content 流：最终的结构化报告，但需要过滤JSON搜索查询
                         if (delta.content) {
-                            finalContent += delta.content;
-                            updateFinalContent();
+                            const content = delta.content;
                             
-                            // 如果报告区域还未显示，现在显示它
-                            if (document.getElementById('resultSection').style.display === 'none') {
-                                showResultSection();
-                                showStatus('正在生成最终报告...');
+                            // 使用更智能的检测函数
+                            if (isSearchQuery(content)) {
+                                // 这是搜索查询或内部指令，应该放到思考区域
+                                thinkingContent += '\n🔍 搜索中: ' + content;
+                                updateThinkingContent();
+                                
+                                // 如果思考区域还未显示，现在显示它
+                                if (document.getElementById('thinkingSection').style.display === 'none') {
+                                    showThinkingSection();
+                                    showStatus('AI正在搜索数据...');
+                                }
+                            } else {
+                                // 这是真正的报告内容
+                                finalContent += content;
+                                updateFinalContent();
+                                
+                                // 如果报告区域还未显示，现在显示它
+                                if (document.getElementById('resultSection').style.display === 'none') {
+                                    showResultSection();
+                                    showStatus('正在生成最终报告...');
+                                }
                             }
                         }
                     } catch (e) {
@@ -179,6 +195,34 @@ async function callOpenRouterAPIStream(prompt) {
 
 // 已移除processChunk、thinkingContentOriginalSafeSlice和detectReportStartIndex函数
 // 现在使用GPT-5-thinking-all的原生双流输出，不需要人为分离
+
+// 检测内容是否为JSON搜索查询或内部指令
+function isSearchQuery(content) {
+    // 移除空白字符后检查
+    const trimmed = content.trim();
+    
+    // 检查是否为JSON格式的搜索查询
+    if (trimmed.startsWith('{') && trimmed.includes('"search_query"')) {
+        return true;
+    }
+    
+    // 检查是否为打开引用的指令
+    if (trimmed.startsWith('{') && trimmed.includes('"open"')) {
+        return true;
+    }
+    
+    // 检查是否包含搜索相关的关键词
+    if (trimmed.includes('response_length') || trimmed.includes('ref_id')) {
+        return true;
+    }
+    
+    // 检查是否为代码块包裹的JSON
+    if (trimmed.startsWith('```') && trimmed.includes('search_query')) {
+        return true;
+    }
+    
+    return false;
+}
 
 // 更新思考内容显示
 function updateThinkingContent() {
