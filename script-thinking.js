@@ -78,6 +78,10 @@ async function callOpenRouterAPIStream(prompt) {
     const apiUrl = isLocal ? PROXY_URL + '/api/chat/completions' : '/api/chat';
     console.log('API URL:', apiUrl);
     
+    // 重要：先显示思考区域，确保它在上面
+    showThinkingSection();
+    showStatus('AI正在思考分析...');
+    
     try {
         const response = await fetch(apiUrl, {
             method: 'POST',
@@ -112,7 +116,6 @@ async function callOpenRouterAPIStream(prompt) {
         let buffer = '';
         
         hideLoading();
-        showThinkingSection();
         showStatus('正在接收AI响应...');
         
         while (true) {
@@ -159,46 +162,67 @@ async function callOpenRouterAPIStream(prompt) {
                             }
                         }
                         
-                        // content 流：最终报告内容
-                        // 注意：根据实际观察，GPT-5的英文reasoning有时会出现在content流中
-                        // 这可能是API的问题，所以仍需要做基本的内容识别
+                        // content 流：需要智能识别内容类型
+                        // GPT-5-thinking-all的思考内容经常出现在content流中
                         if (delta.content) {
                             const content = delta.content;
-                            
-                            // 简化判断：只识别明显的思考内容（JSON搜索查询和英文reasoning）
                             const trimmed = content.trim();
                             
-                            // 1. JSON搜索查询 -> 思考区域
-                            if (trimmed.startsWith('{') && (
-                                trimmed.includes('"search_query"') || 
-                                trimmed.includes('"open"') ||
-                                trimmed.includes('"click"'))) {
+                            // 判断是否为思考内容的更全面规则
+                            let isThinking = false;
+                            
+                            // 1. JSON格式（搜索查询等）
+                            if (trimmed.startsWith('{') && trimmed.includes('"')) {
+                                isThinking = true;
                                 thinkingContent += '\n🔍 ' + content;
-                                updateThinkingContent();
-                                if (document.getElementById('thinkingSection').style.display === 'none') {
-                                    showThinkingSection();
-                                    showStatus('AI正在搜索数据...');
-                                }
                             }
-                            // 2. 英文reasoning内容（以> 开头）-> 思考区域  
-                            else if (trimmed.startsWith('> ') && !trimmed.startsWith('> 【')) {
+                            // 2. 英文内容（GPT-5的reasoning经常是英文）
+                            else if (/^[A-Za-z]/.test(trimmed) || trimmed.startsWith('> ')) {
+                                isThinking = true;
                                 thinkingContent += '\n💭 ' + content;
-                                updateThinkingContent();
-                                if (document.getElementById('thinkingSection').style.display === 'none') {
-                                    showThinkingSection();
-                                    showStatus('AI正在分析...');
-                                }
                             }
-                            // 3. 其他内容 -> 报告区域
-                            else if (content.trim()) {
+                            // 3. URL链接
+                            else if (trimmed.includes('http') || trimmed.includes('www.') || 
+                                     trimmed.includes('.com') || trimmed.includes('.cn')) {
+                                isThinking = true;
+                                thinkingContent += '\n🔗 ' + content;
+                            }
+                            // 4. 包含搜索关键词
+                            else if (trimmed.includes('search') || trimmed.includes('query') || 
+                                     trimmed.includes('click') || trimmed.includes('open')) {
+                                isThinking = true;
+                                thinkingContent += '\n🔍 ' + content;
+                            }
+                            // 5. 检查是否为报告的开始标记
+                            else if (trimmed.includes('以下是') || trimmed.includes('## 一、') || 
+                                     trimmed.includes('---') || /^#/.test(trimmed)) {
+                                // 这是报告的开始，切换到报告模式
+                                isThinking = false;
                                 finalContent += content;
-                                updateFinalContent();
                                 
-                                // 如果报告区域还未显示，现在显示它
+                                // 显示报告区域
                                 if (document.getElementById('resultSection').style.display === 'none') {
                                     showResultSection();
-                                    showStatus('正在生成最终报告...');
+                                    showStatus('正在生成分析报告...');
                                 }
+                            }
+                            // 6. 默认：如果已经在显示报告，继续添加到报告
+                            else if (document.getElementById('resultSection').style.display !== 'none' && 
+                                     finalContent.length > 0) {
+                                isThinking = false;
+                                finalContent += content;
+                            }
+                            // 7. 否则添加到思考区域
+                            else {
+                                isThinking = true;
+                                thinkingContent += content;
+                            }
+                            
+                            // 更新相应的显示区域
+                            if (isThinking) {
+                                updateThinkingContent();
+                            } else {
+                                updateFinalContent();
                             }
                         }
                     } catch (e) {
@@ -292,7 +316,15 @@ function isThinkingContent(content) {
 function cleanReportContent(content) {
     let cleaned = content;
     
-    // 首先移除search()函数调用和相关内容
+    // 移除所有URL和链接
+    cleaned = cleaned.replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, '$1'); // 保留链接文字，移除URL
+    cleaned = cleaned.replace(/https?:\/\/[^\s]+/g, ''); // 移除裸露的URL
+    cleaned = cleaned.replace(/www\.[^\s]+/g, ''); // 移除www开头的链接
+    cleaned = cleaned.replace(/>\s*📄\s*\*\*\[[^\]]+\]\([^)]+\)\*\*/g, ''); // 移除带图标的链接
+    cleaned = cleaned.replace(/>\s*\*\*\[[^\]]+\]\([^)]+\)\*\*/g, ''); // 移除引用格式的链接
+    cleaned = cleaned.replace(/·\s*\*[^*]+\*/g, ''); // 移除来源标记
+    
+    // 移除search()函数调用和相关内容
     cleaned = cleaned.replace(/>\s*search\([^)]+\)/g, '');
     cleaned = cleaned.replace(/search\([^)]+\)/g, '');
     
