@@ -137,6 +137,16 @@ async function callOpenRouterAPIStream(prompt) {
                         const parsed = JSON.parse(data);
                         const delta = parsed.choices?.[0]?.delta || {};
                         
+                        // 调试日志：查看实际的流数据
+                        if (delta.reasoning || delta.content) {
+                            console.log('Stream data:', {
+                                hasReasoning: !!delta.reasoning,
+                                hasContent: !!delta.content,
+                                reasoningPreview: delta.reasoning ? delta.reasoning.substring(0, 50) + '...' : null,
+                                contentPreview: delta.content ? delta.content.substring(0, 50) + '...' : null
+                            });
+                        }
+                        
                         // reasoning 流：AI的真实思考过程，直接放到思考区域
                         if (delta.reasoning) {
                             thinkingContent += delta.reasoning;
@@ -149,56 +159,45 @@ async function callOpenRouterAPIStream(prompt) {
                             }
                         }
                         
-                        // content 流：需要智能分离思考过程和报告内容
+                        // content 流：最终报告内容
+                        // 注意：根据实际观察，GPT-5的英文reasoning有时会出现在content流中
+                        // 这可能是API的问题，所以仍需要做基本的内容识别
                         if (delta.content) {
                             const content = delta.content;
                             
-                            // 使用累积buffer来更准确地识别内容类型
-                            // 检查最近的内容是否包含search()或其他应该在思考区的内容
-                            const recentContent = (finalContent + content).slice(-200);
-                            const shouldBeInThinking = isThinkingContent(content) || 
-                                                       recentContent.includes('> search(') ||
-                                                       recentContent.includes('search("');
+                            // 简化判断：只识别明显的思考内容（JSON搜索查询和英文reasoning）
+                            const trimmed = content.trim();
                             
-                            if (shouldBeInThinking) {
-                                // 这是搜索查询、URL引用或其他思考过程，应该放到思考区域
-                                // 如果之前有误放到finalContent的search内容，移除它
-                                if (finalContent.includes('> search(') || finalContent.includes('search("')) {
-                                    const searchMatch = finalContent.match(/(>?\s*search\([^)]+\).*?)$/s);
-                                    if (searchMatch) {
-                                        thinkingContent += '\n🔍 ' + searchMatch[1];
-                                        finalContent = finalContent.replace(searchMatch[1], '');
-                                    }
-                                }
-                                
-                                if (content.includes('search(')) {
-                                    thinkingContent += '\n🔍 ' + content;
-                                } else if (content.includes('http')) {
-                                    thinkingContent += '\n📎 ' + content;
-                                } else {
-                                    thinkingContent += '\n💭 ' + content;
-                                }
+                            // 1. JSON搜索查询 -> 思考区域
+                            if (trimmed.startsWith('{') && (
+                                trimmed.includes('"search_query"') || 
+                                trimmed.includes('"open"') ||
+                                trimmed.includes('"click"'))) {
+                                thinkingContent += '\n🔍 ' + content;
                                 updateThinkingContent();
-                                
-                                // 如果思考区域还未显示，现在显示它
                                 if (document.getElementById('thinkingSection').style.display === 'none') {
                                     showThinkingSection();
-                                    showStatus('AI正在搜索和分析数据...');
+                                    showStatus('AI正在搜索数据...');
                                 }
-                            } else {
-                                // 这是真正的报告内容
-                                // 过滤掉空白内容和不完整的结构
-                                if (content.trim() && !content.includes('**公司名称**：') && 
-                                    !content.includes('- **事件类型**：') &&
-                                    !content.includes('- **事件详情**：')) {
-                                    finalContent += content;
-                                    updateFinalContent();
-                                    
-                                    // 如果报告区域还未显示，现在显示它
-                                    if (document.getElementById('resultSection').style.display === 'none') {
-                                        showResultSection();
-                                        showStatus('正在生成最终报告...');
-                                    }
+                            }
+                            // 2. 英文reasoning内容（以> 开头）-> 思考区域  
+                            else if (trimmed.startsWith('> ') && !trimmed.startsWith('> 【')) {
+                                thinkingContent += '\n💭 ' + content;
+                                updateThinkingContent();
+                                if (document.getElementById('thinkingSection').style.display === 'none') {
+                                    showThinkingSection();
+                                    showStatus('AI正在分析...');
+                                }
+                            }
+                            // 3. 其他内容 -> 报告区域
+                            else if (content.trim()) {
+                                finalContent += content;
+                                updateFinalContent();
+                                
+                                // 如果报告区域还未显示，现在显示它
+                                if (document.getElementById('resultSection').style.display === 'none') {
+                                    showResultSection();
+                                    showStatus('正在生成最终报告...');
                                 }
                             }
                         }
