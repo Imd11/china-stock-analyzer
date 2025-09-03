@@ -55,6 +55,7 @@ async function generateReport() {
     thinkingContent = '';
     finalContent = '';
     isThinkingPhase = true;
+    window.reportStarted = false; // 添加全局标记
     
     showLoading();
     hideResults();
@@ -152,43 +153,23 @@ async function callOpenRouterAPIStream(prompt) {
                             updateThinkingContent();
                         }
                         
-                        // content 流：需要智能识别内容类型
-                        // GPT-5-thinking-all的思考内容经常出现在content流中
+                        // content 流：Tu-zi API把所有内容都放在这里
+                        // 策略：默认所有内容进入思考区域，直到检测到明确的报告开始
                         if (delta.content) {
                             const content = delta.content;
                             const trimmed = content.trim();
                             
-                            // 判断是否为思考内容的更全面规则
-                            let isThinking = false;
-                            
-                            // 1. JSON格式（搜索查询等）
-                            if (trimmed.startsWith('{') && trimmed.includes('"')) {
-                                isThinking = true;
-                                thinkingContent += '\n🔍 ' + content;
-                            }
-                            // 2. 英文内容（GPT-5的reasoning经常是英文）
-                            else if (/^[A-Za-z]/.test(trimmed) || trimmed.startsWith('> ')) {
-                                isThinking = true;
-                                thinkingContent += '\n💭 ' + content;
-                            }
-                            // 3. URL链接
-                            else if (trimmed.includes('http') || trimmed.includes('www.') || 
-                                     trimmed.includes('.com') || trimmed.includes('.cn')) {
-                                isThinking = true;
-                                thinkingContent += '\n🔗 ' + content;
-                            }
-                            // 4. 包含搜索关键词
-                            else if (trimmed.includes('search') || trimmed.includes('query') || 
-                                     trimmed.includes('click') || trimmed.includes('open')) {
-                                isThinking = true;
-                                thinkingContent += '\n🔍 ' + content;
-                            }
-                            // 5. 检查是否为报告的开始标记
-                            else if (trimmed.includes('以下是') || trimmed.includes('## 一、') || 
-                                     trimmed.includes('---') || /^#/.test(trimmed)) {
-                                // 这是报告的开始，切换到报告模式
-                                isThinking = false;
+                            // 检测是否为报告的开始（需要非常明确的标记）
+                            if (!window.reportStarted && (
+                                trimmed.includes('以下是截至') || 
+                                trimmed.includes('## 一、市场数据') ||
+                                (trimmed.startsWith('##') && trimmed.includes('一、')) ||
+                                trimmed.includes('中国上市公司重大事件')
+                            )) {
+                                // 标记报告开始
+                                window.reportStarted = true;
                                 finalContent += content;
+                                updateFinalContent();
                                 
                                 // 显示报告区域
                                 if (document.getElementById('resultSection').style.display === 'none') {
@@ -196,23 +177,34 @@ async function callOpenRouterAPIStream(prompt) {
                                     showStatus('正在生成分析报告...');
                                 }
                             }
-                            // 6. 默认：如果已经在显示报告，继续添加到报告
-                            else if (document.getElementById('resultSection').style.display !== 'none' && 
-                                     finalContent.length > 0) {
-                                isThinking = false;
+                            // 如果报告已经开始，后续内容进入报告区域
+                            else if (window.reportStarted) {
                                 finalContent += content;
-                            }
-                            // 7. 否则添加到思考区域
-                            else {
-                                isThinking = true;
-                                thinkingContent += content;
-                            }
-                            
-                            // 更新相应的显示区域
-                            if (isThinking) {
-                                updateThinkingContent();
-                            } else {
                                 updateFinalContent();
+                            }
+                            // 否则，所有内容都进入思考区域
+                            else {
+                                // 为不同类型的思考内容添加图标
+                                if (trimmed.startsWith('{') && trimmed.includes('"')) {
+                                    thinkingContent += '\n🔍 搜索查询：' + content;
+                                } else if (trimmed.includes('search(') || trimmed.includes('搜索')) {
+                                    thinkingContent += '\n🔎 ' + content;
+                                } else if (trimmed.includes('http') || trimmed.includes('www.')) {
+                                    thinkingContent += '\n🔗 ' + content;
+                                } else if (/^[A-Za-z]/.test(trimmed)) {
+                                    thinkingContent += '\n💭 ' + content;
+                                } else if (trimmed.startsWith('>')) {
+                                    thinkingContent += '\n📝 ' + content;
+                                } else if (trimmed) {
+                                    thinkingContent += content;
+                                }
+                                
+                                updateThinkingContent();
+                                
+                                // 确保思考区域显示
+                                if (document.getElementById('thinkingSection').style.display === 'none') {
+                                    showThinkingSection();
+                                }
                             }
                         }
                     } catch (e) {
