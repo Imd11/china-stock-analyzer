@@ -1,5 +1,4 @@
-const API_KEY = 'sk-DqlYesMKwBBmKYcGn0ZSYwGvh2lO7YdYm2lmUpblm8kGjxXp';
-const API_URL = 'https://api.tu-zi.com/v1';
+// 客户端不应包含任何密钥；生产环境走平台函数 '/api/chat'，本地走代理
 const PROXY_URL = 'http://127.0.0.1:3001';
 
 // 全局变量存储内容
@@ -136,8 +135,14 @@ async function callOpenRouterAPIStream(prompt) {
                     }
                     try {
                         const parsed = JSON.parse(data);
-                        if (parsed.choices?.[0]?.delta?.content) {
-                            processChunk(parsed.choices[0].delta.content);
+                        const delta = parsed.choices?.[0]?.delta || {};
+                        // 优先接收 reasoning 流，展示为“思考过程”
+                        if (delta.reasoning && isThinkingPhase) {
+                            processChunk(delta.reasoning);
+                        }
+                        // 同时接收 content 流；当遇到 [REPORT_START] 会自动切换到报告区域
+                        if (delta.content) {
+                            processChunk(delta.content);
                         }
                     } catch (e) {
                         // Ignore parsing errors
@@ -426,6 +431,8 @@ function finalizContent() {
                 
                 // 更新显示
                 updateThinkingContent();
+                // 确保结果区可见（fallback 分支之前未显式打开）
+                showResultSection();
                 reportContent.innerHTML = `
                     <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
                         <p style="margin: 0; color: #155724;">
@@ -583,8 +590,16 @@ function showError(message) {
 
 // 创建提示词
 function createPrompt(date) {
-    return `请基于下面的口令生成过去24h（${date}）上市公司的重大事件，字数严格控制在1100汉字(含标点符号)，预计输出消耗约1200个token，请按照该token消耗标准进行内容生成，确保不超出规定的输出token上限。
-【最高优先级指令】：本次任务的首要且最严格的要求是，最终输出的总字数必须控制在1100汉字以内。所有其他关于内容质量和数据深度的要求，都必须在这个字数限制内完成。如果信息过多，请你自行进行提炼和概括，绝不能超出字数范围。请开始。
+    return `请严格按下述流式输出协议工作，并遵守字数与结构约束：
+
+【流式输出协议】
+1) 先仅输出思考过程（可逐步输出、可包含检索与推理要点），禁止使用代码块包裹；
+2) 思考过程结束后，单独输出一行标记：[REPORT_START]
+3) 从该行之后，连续输出“最终报告”正文，且正文中不包含任何思考或检索痕迹；
+4) 不要等待全部内容生成完再输出，必须逐步流式输出；
+5) 最终报告控制在1100汉字以内（含标点）。
+
+【最高优先级指令】最终报告总字数必须≤1100汉字。若信息过多，请精炼概括，绝不可超出字数。请开始。
 
 ——————————————————————————————————————————-
 

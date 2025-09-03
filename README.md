@@ -110,9 +110,11 @@ The project is configured for easy deployment on Vercel:
 3. Deploy with default settings
 
 ### Environment Variables
-Set the following in your Vercel dashboard:
-- `API_KEY`: Your Tu-zi API key
-- `MODEL_NAME`: gpt-5-thinking-all (default)
+Set these in your local `.env` and in Vercel Project Settings > Environment Variables:
+- `TUZI_API_KEY`: Your Tu-zi API key (required)
+- `TUZI_API_URL` (optional): Defaults to `https://api.tu-zi.com/v1/chat/completions`
+
+Security note: No API key is kept in frontend code; all calls route through a proxy or the Vercel `api/chat` serverless function which reads keys from env.
 
 ## License 📄
 

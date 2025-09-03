@@ -1,5 +1,4 @@
-const API_KEY = 'sk-DqlYesMKwBBmKYcGn0ZSYwGvh2lO7YdYm2lmUpblm8kGjxXp';
-const API_URL = 'https://api.tu-zi.com/v1';
+// 客户端不应包含任何密钥；仅通过本地/服务端代理访问
 const PROXY_URL = 'http://127.0.0.1:3001';
 
 // 搜索股市数据的函数
