@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const copyBtn = document.getElementById('copyBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const toggleThinking = document.getElementById('toggleThinking');
-    const adjustSeparationBtn = document.getElementById('adjustSeparation');
     
     // 设置默认日期为今天
     const today = new Date().toISOString().split('T')[0];
@@ -28,7 +27,6 @@ document.addEventListener('DOMContentLoaded', function() {
     copyBtn.addEventListener('click', copyReport);
     downloadBtn.addEventListener('click', downloadReport);
     toggleThinking.addEventListener('click', toggleThinkingContent);
-    adjustSeparationBtn.addEventListener('click', manualAdjustSeparation);
 });
 
 // 切换思考内容显示/隐藏
@@ -45,50 +43,6 @@ function toggleThinkingContent() {
     }
 }
 
-// 手动调整分离
-function manualAdjustSeparation() {
-    if (!thinkingContent || thinkingContent.length < 100) {
-        alert('没有足够的内容进行分离调整');
-        return;
-    }
-    
-    console.log('手动触发智能分离...');
-    const separated = intelligentSeparation(thinkingContent);
-    
-    if (separated.report && separated.report.length > 50) {
-        // 重置状态
-        isThinkingPhase = false;
-        
-        // 更新内容
-        thinkingContent = separated.thinking;
-        finalContent = separated.report;
-        
-        // 更新显示
-        updateThinkingContent();
-        showResultSection();
-        
-        const reportContent = document.getElementById('reportContent');
-        reportContent.innerHTML = `
-            <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
-                <p style="margin: 0; color: #155724;">
-                    ✅ <strong>手动分离成功</strong> - 使用${separated.method}重新分离内容
-                </p>
-            </div>
-            ${formatFinalContent(finalContent)}
-        `;
-        
-        // 更新按钮文本
-        const adjustBtn = document.getElementById('adjustSeparation');
-        const originalText = adjustBtn.textContent;
-        adjustBtn.textContent = '✓ 已调整';
-        setTimeout(() => {
-            adjustBtn.textContent = originalText;
-        }, 3000);
-        
-    } else {
-        alert('智能分离失败，内容可能不符合预期格式');
-    }
-}
 
 // 生成报告
 async function generateReport() {
