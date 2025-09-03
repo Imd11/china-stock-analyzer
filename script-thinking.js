@@ -155,18 +155,25 @@ async function callOpenRouterAPIStream(prompt) {
 function intelligentSeparation(content) {
     console.log('尝试智能分离内容...');
     
-    // 备用分隔符列表
+    // 备用分隔符列表 - 优先寻找中文报告标识
     const fallbackSeparators = [
         '### 【一、市场数据部分】',
         '## 【市场数据部分】',
-        '**市场数据**',
+        '### 【市场数据部分】',
+        '# 【市场数据部分】',
+        '【一、市场数据部分】',
+        '【市场数据部分】',
         '上证指数：',
-        '【市场数据】',
-        '=== 报告正文 ===',
-        '报告正文',
-        '分析报告',
-        '今日重点',
-        '# 中国上市公司'
+        '## 市场数据',
+        '# 市场数据',
+        '**市场数据**',
+        '=== 市场数据 ===',
+        '## 【一、',
+        '### 【一、',
+        '【一、',
+        '今日股市',
+        '股市分析',
+        '市场回顾'
     ];
     
     for (let separator of fallbackSeparators) {
@@ -181,34 +188,95 @@ function intelligentSeparation(content) {
         }
     }
     
-    // 基于长度的智能分离（假设思考过程通常占70%）
+    // 寻找中文报告内容的特征模式
     const lines = content.split('\n');
-    if (lines.length > 10) {
-        const cutPoint = Math.floor(lines.length * 0.7);
-        // 从70%位置开始，寻找像报告开始的行
-        for (let i = cutPoint; i < lines.length - 2; i++) {
-            const line = lines[i].trim();
-            if (line.includes('上证指数') || line.includes('市场数据') || 
-                line.includes('【一、') || line.includes('### ') ||
-                (line.length > 10 && line.includes('：') && line.includes('%'))) {
-                console.log(`基于内容特征分离，分离点: ${line}`);
+    const chineseReportPatterns = [
+        /^上证指数：.*[0-9]+.*[%％]/,
+        /^深证成指：.*[0-9]+.*[%％]/,
+        /^创业板指：.*[0-9]+.*[%％]/,
+        /^北向资金：.*[0-9]+.*亿元/,
+        /^南向资金：.*[0-9]+.*亿元/,
+        /^【.*】.*[0-9]+/,
+        /^## 【.*】/,
+        /^### 【.*】/,
+        /^.*成交额：.*万亿元/,
+        /^.*涨跌幅.*%/
+    ];
+    
+    // 从内容末尾开始向前寻找，因为报告通常在后面
+    for (let i = lines.length - 1; i >= Math.floor(lines.length * 0.3); i--) {
+        const line = lines[i].trim();
+        
+        // 检查是否匹配中文报告模式
+        for (let pattern of chineseReportPatterns) {
+            if (pattern.test(line)) {
+                // 找到可能的报告起始点，向前寻找更合适的分割点
+                let reportStart = i;
+                
+                // 向前寻找段落开始
+                for (let j = i - 1; j >= 0; j--) {
+                    const prevLine = lines[j].trim();
+                    if (prevLine === '' || prevLine.includes('💭') || prevLine.includes('🔍')) {
+                        reportStart = j + 1;
+                        break;
+                    }
+                }
+                
+                console.log(`基于中文报告模式分离，匹配行: ${line}`);
                 return {
-                    thinking: lines.slice(0, i).join('\n').trim(),
-                    report: lines.slice(i).join('\n').trim(),
-                    method: '基于内容特征分离'
+                    thinking: lines.slice(0, reportStart).join('\n').trim(),
+                    report: lines.slice(reportStart).join('\n').trim(),
+                    method: '中文报告模式识别'
                 };
             }
         }
     }
     
-    // 最后的分离方法：按固定比例分离
+    // 如果没有找到模式，尝试寻找大段中文内容
+    for (let i = Math.floor(lines.length * 0.4); i < lines.length - 5; i++) {
+        const line = lines[i].trim();
+        
+        // 检查是否是大段中文内容的开始
+        if (line.length > 20 && /^[\u4e00-\u9fa5]/.test(line) && 
+            (line.includes('指数') || line.includes('市场') || line.includes('股票') || 
+             line.includes('公司') || line.includes('政策') || line.includes('板块'))) {
+            
+            // 检查后续几行是否也是中文内容
+            let chineseLineCount = 0;
+            for (let j = i; j < Math.min(i + 10, lines.length); j++) {
+                const checkLine = lines[j].trim();
+                if (checkLine.length > 10 && /[\u4e00-\u9fa5]/.test(checkLine)) {
+                    chineseLineCount++;
+                }
+            }
+            
+            if (chineseLineCount >= 3) {
+                console.log(`基于中文内容特征分离，分离点: ${line}`);
+                return {
+                    thinking: lines.slice(0, i).join('\n').trim(),
+                    report: lines.slice(i).join('\n').trim(),
+                    method: '中文内容特征识别'
+                };
+            }
+        }
+    }
+    
+    // 最后的分离方法：按固定比例分离，但确保分离点不在英文内容中
     const contentLength = content.length;
-    const cutPoint = Math.floor(contentLength * 0.6);
-    console.log('使用固定比例分离 (60%/40%)');
+    let cutPoint = Math.floor(contentLength * 0.6);
+    
+    // 向后查找到合适的中文内容开始点
+    const searchText = content.substring(cutPoint);
+    const chineseMatch = searchText.match(/[\u4e00-\u9fa5]{10,}/);
+    if (chineseMatch) {
+        cutPoint += chineseMatch.index;
+    }
+    
+    console.log('使用优化的固定比例分离');
     return {
         thinking: content.substring(0, cutPoint).trim(),
         report: content.substring(cutPoint).trim(),
-        method: '固定比例分离 (60%/40%)'
+        method: '优化的固定比例分离'
     };
 }
 
@@ -305,13 +373,21 @@ function finalizContent() {
                 // 更新显示
                 updateThinkingContent();
                 reportContent.innerHTML = `
-                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
-                        <p style="margin: 0; color: #856404;">
-                            ⚠️ <strong>备用分离机制已启用</strong> - 使用${separated.method}成功分离内容
+                    <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
+                        <p style="margin: 0; color: #155724;">
+                            ✅ <strong>智能分离成功</strong> - 使用${separated.method}成功分离内容
                         </p>
                     </div>
                     ${formatFinalContent(finalContent)}
                 `;
+                
+                // 滚动到报告区域
+                setTimeout(() => {
+                    document.getElementById('resultSection').scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                }, 300);
                 
                 hideStatus();
                 return;
@@ -453,62 +529,81 @@ function showError(message) {
 
 // 创建提示词
 function createPrompt(date) {
-    return `🚨🚨🚨【CRITICAL】输出格式强制要求🚨🚨🚨
+    return `你是一名专业的金融数据分析师，请直接生成${date}中国股市分析报告。
 
-你的回应必须分为两个部分：
-1️⃣ 第一部分：你的思考过程和搜索过程
-2️⃣ 第二部分：最终的分析报告
+⚠️ 重要输出格式要求：
+1. 先简单说明你的分析思路(100字以内)
+2. 然后必须在单独一行输出：[REPORT_START]
+3. 最后输出完整的结构化报告
 
-⚠️ 重要：当你完成思考过程后，必须在单独一行输出以下分隔符：
-[REPORT_START]
+# ${date} 中国上市公司重大事件分析报告
 
-这个分隔符是强制性的，不可省略！
+请按以下格式直接输出报告：
 
-🚨🚨🚨【CRITICAL】输出格式强制要求🚨🚨🚨
-
-【角色设定】你是一名专业的金融数据分析师。
-【任务】请基于下面的口令生成过去24h（${date}）上市公司的重大事件分析报告。
-
-# 中国上市公司新闻数据全面搜集口令
-
-## 【角色】
-你是一名拥有20年经验的顶级咨询专家，专长于中国资本市场分析。
-
-## 【背景】
-为我全面搜集过去24小时内中国上市公司发生的所有重大事件、新闻动态和市场信息。
-
-⭐⭐⭐ 记住：完成思考后必须输出 [REPORT_START] 分隔符！⭐⭐⭐
-
-## 【搜集格式要求】
-
-### 【一、市场数据部分】
+## 【一、市场数据部分】
 上证指数：[具体点位] ([涨跌幅±X.XX%])，成交额：[X.XX万亿元]
 深证成指：[具体点位] ([涨跌幅±X.XX%])，成交额：[X.XX万亿元]
 创业板指：[具体点位] ([涨跌幅±X.XX%])，成交额：[X.XX万亿元]
 北向资金：[净流入/净流出X.XX亿元]，南向资金：[净流入/净流出X.XX亿元]
 
-### 【二、宏观政策部分】（3个政策）
-[政策名称]：
-- 具体内容：[详细政策条款]
-- 关键数据：[涉及金额/规模等]
-- 影响范围：[影响的行业、公司数量]
+## 【二、宏观政策部分】（3个政策）
+1. **[政策名称]**
+   - 具体内容：[详细政策条款]
+   - 关键数据：[涉及金额/规模等]
+   - 影响范围：[影响的行业、公司数量]
 
-### 【三、上市公司事件部分】（5个事件）
-[公司全称]([股票代码])：
-- 事件类型：[具体分类]
-- 事件详情：[必须包含具体金额、比例等关键数据]
-- 市场表现：[股价涨跌幅、成交量变化]
+2. **[政策名称]**
+   - 具体内容：[详细政策条款]
+   - 关键数据：[涉及金额/规模等]
+   - 影响范围：[影响的行业、公司数量]
 
-### 【四、热点板块部分】
-[板块名称]：涨幅[X.XX%]，成交额[X.XX亿元]
-- 龙头股表现：[股票名称]([代码])，涨幅[X.XX%]
-- 资金流向：主力净流入[X.XX亿元]
+3. **[政策名称]**
+   - 具体内容：[详细政策条款]
+   - 关键数据：[涉及金额/规模等]
+   - 影响范围：[影响的行业、公司数量]
 
-请确保所有数据准确、具体，不使用模糊表述。最终报告的字数严格控制在1100汉字(含标点符号)。
+## 【三、上市公司事件部分】（5个事件）
+1. **[公司全称]([股票代码])**
+   - 事件类型：[具体分类]
+   - 事件详情：[必须包含具体金额、比例等关键数据]
+   - 市场表现：[股价涨跌幅、成交量变化]
 
-🔥🔥🔥【最终提醒】🔥🔥🔥
-完成思考过程后，在新行输出：[REPORT_START]
-然后再输出最终报告！
-不要忘记这个分隔符！
-🔥🔥🔥【最终提醒】🔥🔥🔥`;
+2. **[公司全称]([股票代码])**
+   - 事件类型：[具体分类]
+   - 事件详情：[必须包含具体金额、比例等关键数据]
+   - 市场表现：[股价涨跌幅、成交量变化]
+
+3. **[公司全称]([股票代码])**
+   - 事件类型：[具体分类]
+   - 事件详情：[必须包含具体金额、比例等关键数据]
+   - 市场表现：[股价涨跌幅、成交量变化]
+
+4. **[公司全称]([股票代码])**
+   - 事件类型：[具体分类]
+   - 事件详情：[必须包含具体金额、比例等关键数据]
+   - 市场表现：[股价涨跌幅、成交量变化]
+
+5. **[公司全称]([股票代码])**
+   - 事件类型：[具体分类]
+   - 事件详情：[必须包含具体金额、比例等关键数据]
+   - 市场表现：[股价涨跌幅、成交量变化]
+
+## 【四、热点板块部分】
+1. **[板块名称]**：涨幅[X.XX%]，成交额[X.XX亿元]
+   - 龙头股表现：[股票名称]([代码])，涨幅[X.XX%]
+   - 资金流向：主力净流入[X.XX亿元]
+
+2. **[板块名称]**：涨幅[X.XX%]，成交额[X.XX亿元]
+   - 龙头股表现：[股票名称]([代码])，涨幅[X.XX%]
+   - 资金流向：主力净流入[X.XX亿元]
+
+3. **[板块名称]**：涨幅[X.XX%]，成交额[X.XX亿元]
+   - 龙头股表现：[股票名称]([代码])，涨幅[X.XX%]
+   - 资金流向：主力净流入[X.XX亿元]
+
+请确保：
+1. 所有数据准确、具体，不使用模糊表述
+2. 最终报告字数控制在1100汉字以内
+3. 必须包含[REPORT_START]分隔符
+4. 输出完整结构化的中文报告`;
 }

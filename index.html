@@ -28,20 +28,7 @@
                 <p>正在分析数据，请稍候...</p>
             </div>
             
-            <!-- 思考过程区域 -->
-            <div class="thinking-section" id="thinkingSection" style="display: none;">
-                <div class="section-header">
-                    <h3>🤔 AI思考过程</h3>
-                    <div class="thinking-controls">
-                        <button id="toggleThinking" class="toggle-btn">折叠</button>
-                    </div>
-                </div>
-                <div class="thinking-content" id="thinkingContent">
-                    <div class="thinking-text" id="thinkingText"></div>
-                </div>
-            </div>
-            
-            <!-- 最终结果区域 -->
+            <!-- 最终结果区域 - 优先显示 -->
             <div class="result-section" id="resultSection" style="display: none;">
                 <div class="section-header">
                     <h2>📊 分析报告</h2>
@@ -64,6 +51,19 @@
                     </div>
                 </div>
                 <div class="report-content" id="reportContent"></div>
+            </div>
+
+            <!-- 思考过程区域 - 默认折叠 -->
+            <div class="thinking-section" id="thinkingSection" style="display: none;">
+                <div class="section-header">
+                    <h3>🤔 AI思考过程</h3>
+                    <div class="thinking-controls">
+                        <button id="toggleThinking" class="toggle-btn">展开</button>
+                    </div>
+                </div>
+                <div class="thinking-content collapsed" id="thinkingContent">
+                    <div class="thinking-text" id="thinkingText"></div>
+                </div>
             </div>
             
             <!-- 状态提示 -->
