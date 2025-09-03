@@ -378,8 +378,24 @@ function updateFinalContent() {
 
 // 格式化思考内容
 function formatThinkingContent(content) {
-    let formatted = content
-        .replace(/^> (.*)$/gm, '<div class="thinking-block">💭 $1</div>')
+    // 行级处理：支持三类显式标记 + 引用样式
+    const lines = content.split('\n');
+    const out = lines.map(line => {
+        const t = line.trim();
+        if (!t) return '';
+        if (t.startsWith('💭')) {
+            return `<div class="thinking-block">${t}</div>`;
+        }
+        if (t.startsWith('🔍')) {
+            return `<div class="search-block">${t}</div>`;
+        }
+        if (t.startsWith('> ')) {
+            return `<div class="thinking-block">💭 ${t.slice(2)}</div>`;
+        }
+        return t;
+    });
+    // 代码块转换为“搜索块/数据块”
+    let formatted = out.join('\n')
         .replace(/```[\s\S]*?```/g, (match) => {
             return '<div class="search-block">🔍 ' + match.replace(/```/g, '') + '</div>';
         })
@@ -609,11 +625,21 @@ function createPrompt(date) {
     return `请严格按下述流式输出协议工作，并遵守字数与结构约束：
 
 【流式输出协议】
-1) 先仅输出思考过程（可逐步输出、可包含检索与推理要点），禁止使用代码块包裹；
+1) 先仅输出“思考过程”（逐步流式输出），可包含检索与推理要点；
 2) 思考过程结束后，单独输出一行标记：[REPORT_START]
 3) 从该行之后，连续输出“最终报告”正文，且正文中不包含任何思考或检索痕迹；
 4) 不要等待全部内容生成完再输出，必须逐步流式输出；
 5) 最终报告控制在1100汉字以内（含标点）。
+
+【思考输出风格（非常重要）】
+- 绝对不要复述或改写本任务的指令、格式或分节标题；
+- 使用第一人称的内部独白，体现真实的分析路径与取舍；
+- 用以下标记组织行：
+  - 💭 内部判断：写3条当天市场关键假设（1行1条，含可能驱动因素）
+  - 🔍 查询：写5条预期检索/关注的关键词（精确到公司/政策/板块/资金）
+  - ➡️ 决策：写选择5条公司事件与3条政策的取舍理由（简洁要点化）
+- 如需罗列数据口径或交叉验证思路，请简明扼要，不要出现“【一、市场数据部分】”这类模板用语；
+- 思考总量建议≤300字，保持紧凑；
 
 【最高优先级指令】最终报告总字数必须≤1100汉字。若信息过多，请精炼概括，绝不可超出字数。请开始。
 
