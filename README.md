@@ -56,9 +56,11 @@ http://127.0.0.1:3000
 
 ## Configuration ⚙️
 
-The application uses the Tu-zi API for GPT-5-thinking-all model access. API keys are configured in the proxy server files.
+The application uses the Tu-zi API for GPT-5-thinking-all model access.
 
-**Important**: Never commit API keys to version control. Use environment variables for production.
+Two integration modes are supported:
+- Secure proxy/server (recommended): Frontend calls `/api/chat` (Vercel) or local proxy; API key lives in env vars.
+- Direct client call (not recommended): Enable `USE_DIRECT_API` in `script-thinking.js` or `script-stream.js` and set `DIRECT_API_KEY`. This exposes the key to all users and may incur abuse and cost. CORS must be allowed by the API provider. The code will auto-fallback to `/api/chat` if direct call fails.
 
 ## Features in Detail 🔍
 
