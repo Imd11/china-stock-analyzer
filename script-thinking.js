@@ -232,7 +232,8 @@ function isThinkingContent(content) {
         trimmed.includes('"search_query"') || 
         trimmed.includes('"open"') ||
         trimmed.includes('response_length') ||
-        trimmed.includes('ref_id'))) {
+        trimmed.includes('ref_id') ||
+        trimmed.includes('"click"'))) {
         return true;
     }
     
@@ -251,9 +252,38 @@ function isThinkingContent(content) {
         return true;
     }
     
-    // 检查是否为引用格式的新闻链接
+    // 检查是否为引用格式的新闻链接或思考标题
     if (trimmed.startsWith('> **[') || trimmed.includes('· *')) {
         return true;
+    }
+    
+    // 检查是否为GPT-5的英文思考内容（以> **开头的思考标题）
+    if (trimmed.startsWith('> **') && trimmed.endsWith('**')) {
+        return true;
+    }
+    
+    // 检查是否为引用格式的思考内容（GPT-5经常用"> "开头表示思考）
+    if (trimmed.startsWith('> ') && !trimmed.startsWith('> 【')) {
+        return true;
+    }
+    
+    // 检测英文思考模式（GPT-5的reasoning经常包含这些短语）
+    const thinkingPatterns = [
+        "I'm planning", "I need to", "I'll", "I should", "I can",
+        "Let me", "seems like", "looks like", "appears to",
+        "considering", "balancing", "gathering", "finalizing",
+        "the user", "the question", "the requirement", "the task",
+        "might be", "could be", "would be", "should be",
+        "trying to", "need to find", "looking for", "searching for",
+        "difficult", "tricky", "tough", "challenging",
+        "Unfortunately", "However", "Additionally", "Given"
+    ];
+    
+    const lowerContent = content.toLowerCase();
+    for (const pattern of thinkingPatterns) {
+        if (lowerContent.includes(pattern.toLowerCase())) {
+            return true;
+        }
     }
     
     return false;
