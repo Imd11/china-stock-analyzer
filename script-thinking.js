@@ -520,8 +520,23 @@ function htmlToMarkdown(html) {
 
 // 下载报告
 function downloadReport() {
-    const htmlContent = document.getElementById('reportContent').innerHTML;
-    const markdownContent = htmlToMarkdown(htmlContent);
+    // 优先使用内存中的最终内容，避免DOM为空或含流式光标
+    let htmlContent = '';
+    if (finalContent && finalContent.trim().length > 0) {
+        htmlContent = formatFinalContent(finalContent);
+    } else {
+        htmlContent = document.getElementById('reportContent').innerHTML || '';
+    }
+
+    // 将HTML转换为Markdown
+    let markdownContent = htmlToMarkdown(htmlContent);
+    // 兜底：若转换后仍为空，改用纯文本
+    if (!markdownContent || markdownContent.trim().length === 0) {
+        const fallbackText = finalContent && finalContent.trim().length > 0
+            ? finalContent
+            : (document.getElementById('reportContent').innerText || '');
+        markdownContent = fallbackText;
+    }
     const date = document.getElementById('date').value;
     const filename = `上市公司日报_${date}.md`;
     const fullContent = `# 中国上市公司重大事件分析报告\n\n` +
