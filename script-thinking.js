@@ -280,6 +280,56 @@ function intelligentSeparation(content) {
     };
 }
 
+// 清理思考内容，移除提示词重复
+function cleanThinkingContent(rawThinking) {
+    // 移除明显的提示词重复内容
+    const promptIndicators = [
+        '请基于下面的口令生成',
+        '【最高优先级指令】',
+        '中国上市公司新闻数据全面搜集口令',
+        '## 【角色】',
+        '你是一名拥有20年经验的顶级咨询专家',
+        '——————————————————————————————————————————-',
+        '【搜集要求】',
+        '【重点搜集方向】'
+    ];
+    
+    let cleanedContent = rawThinking;
+    
+    // 查找第一个不包含提示词指示器的段落
+    const lines = rawThinking.split('\n');
+    let startIndex = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        let containsPrompt = false;
+        
+        for (const indicator of promptIndicators) {
+            if (line.includes(indicator)) {
+                containsPrompt = true;
+                break;
+            }
+        }
+        
+        // 如果这一行不包含提示词内容，且不是空行，则从这里开始
+        if (!containsPrompt && line.length > 0) {
+            startIndex = i;
+            break;
+        }
+    }
+    
+    // 如果找到了真正的思考开始点，则从那里开始提取
+    if (startIndex > 0) {
+        cleanedContent = lines.slice(startIndex).join('\n');
+    }
+    
+    // 进一步清理：移除可能的search()函数调用显示
+    cleanedContent = cleanedContent.replace(/search\([^)]*\)/g, '');
+    cleanedContent = cleanedContent.replace(/💭 search\([^)]*\)/g, '');
+    
+    return cleanedContent.trim();
+}
+
 // 处理每个数据块
 function processChunk(chunk) {
     if (isThinkingPhase) {
@@ -288,7 +338,11 @@ function processChunk(chunk) {
         if (separatorIndex !== -1) {
             isThinkingPhase = false;
             const reportPart = thinkingContent.substring(separatorIndex + '[REPORT_START]'.length);
-            thinkingContent = thinkingContent.substring(0, separatorIndex);
+            
+            // 清理思考内容，移除提示词重复
+            const rawThinking = thinkingContent.substring(0, separatorIndex);
+            thinkingContent = cleanThinkingContent(rawThinking);
+            
             updateThinkingContent();
             showResultSection();
             showStatus('正在生成最终报告...');
@@ -365,8 +419,8 @@ function finalizContent() {
             if (separated.report && separated.report.length > 50) {
                 console.log(`智能分离成功，使用方法: ${separated.method}`);
                 
-                // 更新内容
-                thinkingContent = separated.thinking;
+                // 更新内容，并清理思考内容
+                thinkingContent = cleanThinkingContent(separated.thinking);
                 finalContent = separated.report;
                 isThinkingPhase = false;
                 
