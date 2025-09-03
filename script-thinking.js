@@ -356,12 +356,55 @@ function processChunk(chunk) {
             updateFinalContent();
             console.log('检测到报告开始分隔符 [REPORT_START]');
         } else {
-            updateThinkingContent();
+            // 早期启发式检测：无分隔符时，若检测到报告结构信号，提前切换到报告区
+            const heuristicIndex = detectReportStartIndex(thinkingContent);
+            if (heuristicIndex !== -1) {
+                isThinkingPhase = false;
+                const rawThinking = thinkingContent.substring(0, heuristicIndex);
+                const reportPart = thinkingContent.substring(heuristicIndex);
+                thinkingContent = cleanThinkingContent(rawThinking);
+                updateThinkingContent();
+                showResultSection();
+                showStatus('检测到报告结构，开始输出最终报告...');
+                finalContent = reportPart;
+                updateFinalContent();
+            } else {
+                updateThinkingContent();
+            }
         }
     } else {
         finalContent += chunk;
         updateFinalContent();
     }
+}
+
+// 从原始聚合的文本中安全切割报告段（避免已清理后的思考内容覆盖原文）
+function thinkingContentOriginalSafeSlice(currentThinkingCleaned, cutIndexInOriginal) {
+    // 我们无法直接拿到原始未清理文本的引用，此处简单策略：
+    // 在切换到报告前，使用最近一次的 chunk 内容构造报告起点。
+    // 作为权衡：当启发式触发时，报告已在末尾附近开始，后续的增量会继续追加到 finalContent。
+    return '';
+}
+
+// 启发式检测报告起点（当模型未输出 [REPORT_START] 时）
+function detectReportStartIndex(content) {
+    // 借鉴 intelligentSeparation 的分隔符与中文特征，但更激进：一旦检测到明显的报告标题或关键行，就切换
+    const candidates = [
+        '### 【一、市场数据部分】', '## 【市场数据部分】', '### 【市场数据部分】', '【市场数据部分】',
+        '上证指数：', '深证成指：', '创业板指：', '恒生指数：',
+        '### 【', '## 【', '【一、', '【二、', '【三、', '【四、', '【五、'
+    ];
+    let minIndex = -1;
+    for (const sep of candidates) {
+        const idx = content.indexOf(sep);
+        if (idx !== -1) {
+            // 避免误触发：要求这一信号出现在文本的后半段
+            if (idx > Math.floor(content.length * 0.35)) {
+                minIndex = (minIndex === -1) ? idx : Math.min(minIndex, idx);
+            }
+        }
+    }
+    return minIndex;
 }
 
 // 更新思考内容显示
