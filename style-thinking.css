@@ -308,6 +308,7 @@ main {
     line-height: 1.8;
     font-size: 1.05rem;
     margin-top: 1rem;
+    color: #ffffff; /* 确保默认文本颜色为白色 */
 }
 
 .report-content h3 {
@@ -328,8 +329,33 @@ main {
 
 .report-content p {
     margin-bottom: 1rem;
-    color: rgba(255, 255, 255, 0.9);
+    color: #ffffff; /* 纯白色文本 */
     line-height: 1.75;
+}
+
+/* 确保所有报告内容的文本都是白色 */
+.report-content,
+.report-content span,
+.report-content div,
+.report-content li,
+.report-content ul,
+.report-content ol,
+.report-content strong,
+.report-content em {
+    color: #ffffff !important;
+}
+
+/* 保持标题的特殊颜色 */
+.report-content h1,
+.report-content h2,
+.report-content h3 {
+    color: #00d4aa !important;
+}
+
+.report-content h4,
+.report-content h5,
+.report-content h6 {
+    color: #ffffff !important;
 }
 
 /* 状态栏 */
