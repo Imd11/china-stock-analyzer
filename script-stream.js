@@ -1,8 +1,6 @@
-// 运行模式配置（与思考版保持一致）
+const API_KEY = 'sk-DqlYesMKwBBmKYcGn0ZSYwGvh2lO7YdYm2lmUpblm8kGjxXp';
+const API_URL = 'https://api.tu-zi.com/v1';
 const PROXY_URL = 'http://127.0.0.1:3001';
-const USE_DIRECT_API = false; // 如需直连 Tu-zi API，请改为 true（风险：密钥泄露）
-const DIRECT_API_URL = 'https://api.tu-zi.com/v1/chat/completions';
-const DIRECT_API_KEY = 'REPLACE_WITH_TUZI_API_KEY';
 
 // 搜索股市数据的函数
 async function searchStockMarketData(date) {
@@ -129,25 +127,18 @@ async function generateReport() {
 
 // 流式API调用
 async function callOpenRouterAPIStream(prompt) {
-    console.log('开始调用流式API...');
-    console.log('代理 URL:', PROXY_URL, '直连:', USE_DIRECT_API);
+    console.log('开始调用流式代理API...');
+    console.log('代理 URL:', PROXY_URL);
     console.log('Model:', 'gpt-5-thinking-all');
     
     try {
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        let apiUrl = isLocal ? (PROXY_URL + '/api/chat/completions') : '/api/chat';
-        let useDirect = false;
-        if (!isLocal && USE_DIRECT_API && DIRECT_API_KEY && DIRECT_API_KEY !== 'REPLACE_WITH_TUZI_API_KEY') {
-            apiUrl = DIRECT_API_URL;
-            useDirect = true;
-        }
-
-        let response = await fetch(apiUrl, {
+        const apiUrl = isLocal ? (PROXY_URL + '/api/chat/completions') : '/api/chat';
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'text/event-stream',
-                ...(useDirect ? { 'Authorization': `Bearer ${DIRECT_API_KEY}` } : {})
+                'Accept': 'text/event-stream'
             },
             body: JSON.stringify({
                 model: 'gpt-5-thinking-all',
@@ -162,26 +153,6 @@ async function callOpenRouterAPIStream(prompt) {
                 stream: true
             })
         });
-
-        if (useDirect && !response.ok) {
-            try { console.warn('直连失败，回退到 /api/chat', await response.text()); } catch {}
-            apiUrl = '/api/chat';
-            useDirect = false;
-            response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'text/event-stream'
-                },
-                body: JSON.stringify({
-                    model: 'gpt-5-thinking-all',
-                    messages: [ { role: 'user', content: prompt } ],
-                    temperature: 0.3,
-                    max_tokens: 1500,
-                    stream: true
-                })
-            });
-        }
         
         console.log('API 响应状态:', response.status);
         console.log('API 响应头:', Object.fromEntries(response.headers.entries()));

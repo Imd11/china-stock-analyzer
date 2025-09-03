@@ -5,9 +5,9 @@ const axios = require('axios');
 const app = express();
 const PORT = 3001;
 
-// 兔子API配置（使用环境变量，不要硬编码密钥）
-const API_KEY = process.env.TUZI_API_KEY || process.env.API_KEY;
-const API_URL = process.env.TUZI_API_URL || 'https://api.tu-zi.com/v1/chat/completions';
+// 兔子API配置
+const API_KEY = 'sk-DqlYesMKwBBmKYcGn0ZSYwGvh2lO7YdYm2lmUpblm8kGjxXp';
+const API_URL = 'https://api.tu-zi.com/v1/chat/completions';
 
 // 启用CORS和JSON解析
 app.use(cors({

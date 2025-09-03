@@ -56,11 +56,9 @@ http://127.0.0.1:3000
 
 ## Configuration ⚙️
 
-The application uses the Tu-zi API for GPT-5-thinking-all model access.
+The application uses the Tu-zi API for GPT-5-thinking-all model access. API keys are configured in the proxy server files.
 
-Two integration modes are supported:
-- Secure proxy/server (recommended): Frontend calls `/api/chat` (Vercel) or local proxy; API key lives in env vars.
-- Direct client call (not recommended): Enable `USE_DIRECT_API` in `script-thinking.js` or `script-stream.js` and set `DIRECT_API_KEY`. This exposes the key to all users and may incur abuse and cost. CORS must be allowed by the API provider. The code will auto-fallback to `/api/chat` if direct call fails.
+Important: Never commit API keys to version control. Use environment variables for production.
 
 ## Features in Detail 🔍
 
@@ -112,11 +110,9 @@ The project is configured for easy deployment on Vercel:
 3. Deploy with default settings
 
 ### Environment Variables
-Set these in your local `.env` and in Vercel Project Settings > Environment Variables:
-- `TUZI_API_KEY`: Your Tu-zi API key (required)
-- `TUZI_API_URL` (optional): Defaults to `https://api.tu-zi.com/v1/chat/completions`
-
-Security note: No API key is kept in frontend code; all calls route through a proxy or the Vercel `api/chat` serverless function which reads keys from env.
+Set the following in your Vercel dashboard:
+- `API_KEY`: Your Tu-zi API key
+- `MODEL_NAME`: gpt-5-thinking-all (default)
 
 ## License 📄
 

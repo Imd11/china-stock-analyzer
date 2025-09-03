@@ -22,15 +22,12 @@ export default async function handler(req, res) {
   
   try {
     const body = req.body;
-    const API_KEY = process.env.TUZI_API_KEY || process.env.API_KEY;
-    const API_URL = process.env.TUZI_API_URL || 'https://api.tu-zi.com/v1/chat/completions';
 
-    const response = await fetch(API_URL, {
+    const response = await fetch('https://api.tu-zi.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
-        'Accept': 'text/event-stream'
+        'Authorization': 'Bearer sk-DqlYesMKwBBmKYcGn0ZSYwGvh2lO7YdYm2lmUpblm8kGjxXp'
       },
       body: JSON.stringify(body)
     });
