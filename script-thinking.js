@@ -149,30 +149,41 @@ async function callOpenRouterAPIStream(prompt) {
                             }
                         }
                         
-                        // content 流：最终的结构化报告，但需要过滤JSON搜索查询
+                        // content 流：需要智能分离思考过程和报告内容
                         if (delta.content) {
                             const content = delta.content;
                             
-                            // 使用更智能的检测函数
-                            if (isSearchQuery(content)) {
-                                // 这是搜索查询或内部指令，应该放到思考区域
-                                thinkingContent += '\n🔍 搜索中: ' + content;
+                            // 检测是否应该放在思考区域
+                            if (isThinkingContent(content)) {
+                                // 这是搜索查询、URL引用或其他思考过程，应该放到思考区域
+                                if (content.includes('search(')) {
+                                    thinkingContent += '\n🔍 ' + content;
+                                } else if (content.includes('http')) {
+                                    thinkingContent += '\n📎 ' + content;
+                                } else {
+                                    thinkingContent += '\n💭 ' + content;
+                                }
                                 updateThinkingContent();
                                 
                                 // 如果思考区域还未显示，现在显示它
                                 if (document.getElementById('thinkingSection').style.display === 'none') {
                                     showThinkingSection();
-                                    showStatus('AI正在搜索数据...');
+                                    showStatus('AI正在搜索和分析数据...');
                                 }
                             } else {
                                 // 这是真正的报告内容
-                                finalContent += content;
-                                updateFinalContent();
-                                
-                                // 如果报告区域还未显示，现在显示它
-                                if (document.getElementById('resultSection').style.display === 'none') {
-                                    showResultSection();
-                                    showStatus('正在生成最终报告...');
+                                // 过滤掉空白内容和不完整的结构
+                                if (content.trim() && !content.includes('**公司名称**：') && 
+                                    !content.includes('- **事件类型**：') &&
+                                    !content.includes('- **事件详情**：')) {
+                                    finalContent += content;
+                                    updateFinalContent();
+                                    
+                                    // 如果报告区域还未显示，现在显示它
+                                    if (document.getElementById('resultSection').style.display === 'none') {
+                                        showResultSection();
+                                        showStatus('正在生成最终报告...');
+                                    }
                                 }
                             }
                         }
@@ -196,32 +207,75 @@ async function callOpenRouterAPIStream(prompt) {
 // 已移除processChunk、thinkingContentOriginalSafeSlice和detectReportStartIndex函数
 // 现在使用GPT-5-thinking-all的原生双流输出，不需要人为分离
 
-// 检测内容是否为JSON搜索查询或内部指令
-function isSearchQuery(content) {
+// 检测内容是否为搜索查询、内部指令或应该在思考区的内容
+function isThinkingContent(content) {
     // 移除空白字符后检查
     const trimmed = content.trim();
     
     // 检查是否为JSON格式的搜索查询
-    if (trimmed.startsWith('{') && trimmed.includes('"search_query"')) {
+    if (trimmed.startsWith('{') && (
+        trimmed.includes('"search_query"') || 
+        trimmed.includes('"open"') ||
+        trimmed.includes('response_length') ||
+        trimmed.includes('ref_id'))) {
         return true;
     }
     
-    // 检查是否为打开引用的指令
-    if (trimmed.startsWith('{') && trimmed.includes('"open"')) {
+    // 检查是否为search()函数调用
+    if (trimmed.includes('search(') || trimmed.startsWith('> search(')) {
         return true;
     }
     
-    // 检查是否包含搜索相关的关键词
-    if (trimmed.includes('response_length') || trimmed.includes('ref_id')) {
+    // 检查是否包含URL引用格式
+    if (trimmed.includes('](http') || trimmed.includes('utm_source=')) {
         return true;
     }
     
-    // 检查是否为代码块包裹的JSON
-    if (trimmed.startsWith('```') && trimmed.includes('search_query')) {
+    // 检查是否为代码块
+    if (trimmed.startsWith('```')) {
+        return true;
+    }
+    
+    // 检查是否为引用格式的新闻链接
+    if (trimmed.startsWith('> **[') || trimmed.includes('· *')) {
         return true;
     }
     
     return false;
+}
+
+// 清理报告内容，移除空白模板和不完整的内容
+function cleanReportContent(content) {
+    let cleaned = content;
+    
+    // 移除空白的公司模板
+    cleaned = cleaned.replace(/\*\*公司名称\*\*：\s*\n/g, '');
+    cleaned = cleaned.replace(/\*\*公司名称\*\*：\s*$/g, '');
+    
+    // 移除只有标题没有内容的字段
+    cleaned = cleaned.replace(/- \*\*事件类型\*\*：\s*\n/g, '');
+    cleaned = cleaned.replace(/- \*\*事件详情\*\*：\s*\n/g, '');
+    cleaned = cleaned.replace(/- \*\*关键数据\*\*：\s*\n/g, '');
+    cleaned = cleaned.replace(/- \*\*时间节点\*\*：\s*\n/g, '');
+    cleaned = cleaned.replace(/- \*\*市场表现\*\*：\s*\n/g, '');
+    cleaned = cleaned.replace(/- \*\*公告时间\*\*：\s*\n/g, '');
+    cleaned = cleaned.replace(/- \*\*信息来源\*\*：\s*\n/g, '');
+    
+    // 移除空白的板块模板
+    cleaned = cleaned.replace(/\*\*板块名称\*\*：\s*\n/g, '');
+    cleaned = cleaned.replace(/- \*\*涨幅\*\*：\s*\n/g, '');
+    cleaned = cleaned.replace(/- \*\*成交额\*\*：\s*\n/g, '');
+    cleaned = cleaned.replace(/- \*\*换手率\*\*：\s*15%\s*\n/g, '');
+    
+    // 移除重复的分隔线
+    cleaned = cleaned.replace(/---\s*\n\s*---/g, '---');
+    cleaned = cleaned.replace(/---\s*\n\s*\n\s*---/g, '---');
+    
+    // 移除末尾的不完整内容
+    cleaned = cleaned.replace(/\*\*公司：\s*$/g, '');
+    cleaned = cleaned.replace(/\*\*公司\s*$/g, '');
+    
+    return cleaned;
 }
 
 // 更新思考内容显示
@@ -277,7 +331,12 @@ function formatFinalContent(content) {
 
 // 完成内容处理
 function finalizContent() {
-    // 移除流式显示的光标
+    // 清理和格式化最终内容
+    if (finalContent) {
+        finalContent = cleanReportContent(finalContent);
+    }
+    
+    // 移除流式显示的光标并显示清理后的内容
     const reportContent = document.getElementById('reportContent');
     if (reportContent && finalContent) {
         reportContent.innerHTML = formatFinalContent(finalContent);
@@ -293,6 +352,11 @@ function finalizContent() {
     console.log('=== 生成完成 ===');
     console.log('思考内容长度:', thinkingContent.length);
     console.log('报告内容长度:', finalContent.length);
+    
+    // 如果思考区域有内容但没显示，确保显示它
+    if (thinkingContent && document.getElementById('thinkingSection').style.display === 'none') {
+        showThinkingSection();
+    }
     
     // 如果没有收到任何内容，显示错误信息
     if (!thinkingContent && !finalContent) {
