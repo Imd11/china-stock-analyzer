@@ -55,7 +55,7 @@ async function generateReport() {
     thinkingContent = '';
     finalContent = '';
     isThinkingPhase = true;
-    window.reportStarted = false; // 添加全局标记
+    window.hasWarnedAboutAPI = false; // 重置API警告标记
     
     showLoading();
     hideResults();
@@ -141,70 +141,42 @@ async function callOpenRouterAPIStream(prompt) {
                         const parsed = JSON.parse(data);
                         const delta = parsed.choices?.[0]?.delta || {};
                         
-                        // 调试：确认没有reasoning流（Tu-zi API问题）
-                        // 实际测试显示Tu-zi API的"gpt-5-thinking-all"没有reasoning流
-                        // 所有内容都在content流中，需要手动分离
-                        
-                        // reasoning 流：Tu-zi API不提供，跳过
+                        // reasoning 流：应该包含AI的思考过程
                         if (delta.reasoning) {
-                            // 理论上应该有，但Tu-zi API没有实现
-                            console.warn('发现reasoning流数据（不应该出现）:', delta.reasoning);
+                            // 这是正确的reasoning流，直接进入思考区域
                             thinkingContent += delta.reasoning;
                             updateThinkingContent();
+                            
+                            if (document.getElementById('thinkingSection').style.display === 'none') {
+                                showThinkingSection();
+                                showStatus('AI正在思考分析...');
+                            }
                         }
                         
-                        // content 流：Tu-zi API把所有内容都放在这里
-                        // 策略：默认所有内容进入思考区域，直到检测到明确的报告开始
+                        // content 流：应该包含最终的报告内容
                         if (delta.content) {
-                            const content = delta.content;
-                            const trimmed = content.trim();
+                            // 这是正确的content流，直接进入报告区域
+                            finalContent += delta.content;
+                            updateFinalContent();
                             
-                            // 检测是否为报告的开始（需要非常明确的标记）
-                            if (!window.reportStarted && (
-                                trimmed.includes('以下是截至') || 
-                                trimmed.includes('## 一、市场数据') ||
-                                (trimmed.startsWith('##') && trimmed.includes('一、')) ||
-                                trimmed.includes('中国上市公司重大事件')
-                            )) {
-                                // 标记报告开始
-                                window.reportStarted = true;
-                                finalContent += content;
-                                updateFinalContent();
-                                
-                                // 显示报告区域
-                                if (document.getElementById('resultSection').style.display === 'none') {
-                                    showResultSection();
-                                    showStatus('正在生成分析报告...');
-                                }
+                            if (document.getElementById('resultSection').style.display === 'none') {
+                                showResultSection();
+                                showStatus('正在生成分析报告...');
                             }
-                            // 如果报告已经开始，后续内容进入报告区域
-                            else if (window.reportStarted) {
-                                finalContent += content;
-                                updateFinalContent();
-                            }
-                            // 否则，所有内容都进入思考区域
-                            else {
-                                // 为不同类型的思考内容添加图标
-                                if (trimmed.startsWith('{') && trimmed.includes('"')) {
-                                    thinkingContent += '\n🔍 搜索查询：' + content;
-                                } else if (trimmed.includes('search(') || trimmed.includes('搜索')) {
-                                    thinkingContent += '\n🔎 ' + content;
-                                } else if (trimmed.includes('http') || trimmed.includes('www.')) {
-                                    thinkingContent += '\n🔗 ' + content;
-                                } else if (/^[A-Za-z]/.test(trimmed)) {
-                                    thinkingContent += '\n💭 ' + content;
-                                } else if (trimmed.startsWith('>')) {
-                                    thinkingContent += '\n📝 ' + content;
-                                } else if (trimmed) {
-                                    thinkingContent += content;
-                                }
-                                
+                        }
+                        
+                        // 问题诊断：如果没有reasoning流但有content流
+                        // 说明Tu-zi API没有正确实现GPT-5-thinking-all
+                        if (!delta.reasoning && delta.content && !window.hasWarnedAboutAPI) {
+                            console.warn('警告：Tu-zi API未提供reasoning流，这不是真正的GPT-5-thinking-all模型');
+                            window.hasWarnedAboutAPI = true;
+                            
+                            // 在思考区域显示提示
+                            if (thinkingContent.length === 0) {
+                                thinkingContent = '⚠️ 注意：Tu-zi API未提供reasoning流，无法显示真实思考过程\n';
+                                thinkingContent += '建议更换到支持真正GPT-5-thinking的API服务\n\n';
                                 updateThinkingContent();
-                                
-                                // 确保思考区域显示
-                                if (document.getElementById('thinkingSection').style.display === 'none') {
-                                    showThinkingSection();
-                                }
+                                showThinkingSection();
                             }
                         }
                     } catch (e) {
