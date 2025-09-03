@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const copyBtn = document.getElementById('copyBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const toggleThinking = document.getElementById('toggleThinking');
+    const adjustSeparationBtn = document.getElementById('adjustSeparation');
     
     // 设置默认日期为今天
     const today = new Date().toISOString().split('T')[0];
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
     copyBtn.addEventListener('click', copyReport);
     downloadBtn.addEventListener('click', downloadReport);
     toggleThinking.addEventListener('click', toggleThinkingContent);
+    adjustSeparationBtn.addEventListener('click', manualAdjustSeparation);
 });
 
 // 切换思考内容显示/隐藏
@@ -40,6 +42,51 @@ function toggleThinkingContent() {
     } else {
         thinkingContent.classList.add('collapsed');
         toggleBtn.textContent = '展开';
+    }
+}
+
+// 手动调整分离
+function manualAdjustSeparation() {
+    if (!thinkingContent || thinkingContent.length < 100) {
+        alert('没有足够的内容进行分离调整');
+        return;
+    }
+    
+    console.log('手动触发智能分离...');
+    const separated = intelligentSeparation(thinkingContent);
+    
+    if (separated.report && separated.report.length > 50) {
+        // 重置状态
+        isThinkingPhase = false;
+        
+        // 更新内容
+        thinkingContent = separated.thinking;
+        finalContent = separated.report;
+        
+        // 更新显示
+        updateThinkingContent();
+        showResultSection();
+        
+        const reportContent = document.getElementById('reportContent');
+        reportContent.innerHTML = `
+            <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
+                <p style="margin: 0; color: #155724;">
+                    ✅ <strong>手动分离成功</strong> - 使用${separated.method}重新分离内容
+                </p>
+            </div>
+            ${formatFinalContent(finalContent)}
+        `;
+        
+        // 更新按钮文本
+        const adjustBtn = document.getElementById('adjustSeparation');
+        const originalText = adjustBtn.textContent;
+        adjustBtn.textContent = '✓ 已调整';
+        setTimeout(() => {
+            adjustBtn.textContent = originalText;
+        }, 3000);
+        
+    } else {
+        alert('智能分离失败，内容可能不符合预期格式');
     }
 }
 
@@ -150,6 +197,67 @@ async function callOpenRouterAPIStream(prompt) {
     }
 }
 
+// 智能分离内容函数 - 备用机制
+function intelligentSeparation(content) {
+    console.log('尝试智能分离内容...');
+    
+    // 备用分隔符列表
+    const fallbackSeparators = [
+        '### 【一、市场数据部分】',
+        '## 【市场数据部分】',
+        '**市场数据**',
+        '上证指数：',
+        '【市场数据】',
+        '=== 报告正文 ===',
+        '报告正文',
+        '分析报告',
+        '今日重点',
+        '# 中国上市公司'
+    ];
+    
+    for (let separator of fallbackSeparators) {
+        const index = content.indexOf(separator);
+        if (index !== -1) {
+            console.log(`找到备用分隔符: ${separator}`);
+            return {
+                thinking: content.substring(0, index).trim(),
+                report: content.substring(index).trim(),
+                method: `备用分隔符: ${separator}`
+            };
+        }
+    }
+    
+    // 基于长度的智能分离（假设思考过程通常占70%）
+    const lines = content.split('\n');
+    if (lines.length > 10) {
+        const cutPoint = Math.floor(lines.length * 0.7);
+        // 从70%位置开始，寻找像报告开始的行
+        for (let i = cutPoint; i < lines.length - 2; i++) {
+            const line = lines[i].trim();
+            if (line.includes('上证指数') || line.includes('市场数据') || 
+                line.includes('【一、') || line.includes('### ') ||
+                (line.length > 10 && line.includes('：') && line.includes('%'))) {
+                console.log(`基于内容特征分离，分离点: ${line}`);
+                return {
+                    thinking: lines.slice(0, i).join('\n').trim(),
+                    report: lines.slice(i).join('\n').trim(),
+                    method: '基于内容特征分离'
+                };
+            }
+        }
+    }
+    
+    // 最后的分离方法：按固定比例分离
+    const contentLength = content.length;
+    const cutPoint = Math.floor(contentLength * 0.6);
+    console.log('使用固定比例分离 (60%/40%)');
+    return {
+        thinking: content.substring(0, cutPoint).trim(),
+        report: content.substring(cutPoint).trim(),
+        method: '固定比例分离 (60%/40%)'
+    };
+}
+
 // 处理每个数据块
 function processChunk(chunk) {
     if (isThinkingPhase) {
@@ -212,11 +320,66 @@ function formatFinalContent(content) {
 // 完成内容处理
 function finalizContent() {
     const reportContent = document.getElementById('reportContent');
+    
+    // 添加详细的调试信息
+    console.log('=== 调试信息 ===');
+    console.log('thinkingContent 长度:', thinkingContent.length);
+    console.log('finalContent 长度:', finalContent.length);
+    console.log('isThinkingPhase:', isThinkingPhase);
+    console.log('thinkingContent 最后200字符:', thinkingContent.slice(-200));
+    console.log('是否包含分隔符:', thinkingContent.includes('[REPORT_START]'));
+    console.log('分隔符位置:', thinkingContent.indexOf('[REPORT_START]'));
+    
     if (finalContent) {
         reportContent.innerHTML = formatFinalContent(finalContent);
     } else if (isThinkingPhase) {
         console.error('AI failed to produce a report. The separator [REPORT_START] was not found.');
-        reportContent.innerHTML = '<p style="color: #ef4444;">错误：AI未能生成格式化的报告。模型可能未能完成任务或未按规定格式输出。请检查思考过程以进行调试。</p>';
+        
+        // 如果有内容，尝试智能分离
+        if (thinkingContent && thinkingContent.length > 200) {
+            console.log('启用备用分离机制...');
+            const separated = intelligentSeparation(thinkingContent);
+            
+            if (separated.report && separated.report.length > 50) {
+                console.log(`智能分离成功，使用方法: ${separated.method}`);
+                
+                // 更新内容
+                thinkingContent = separated.thinking;
+                finalContent = separated.report;
+                isThinkingPhase = false;
+                
+                // 更新显示
+                updateThinkingContent();
+                reportContent.innerHTML = `
+                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin-bottom: 15px; border-radius: 5px;">
+                        <p style="margin: 0; color: #856404;">
+                            ⚠️ <strong>备用分离机制已启用</strong> - 使用${separated.method}成功分离内容
+                        </p>
+                    </div>
+                    ${formatFinalContent(finalContent)}
+                `;
+                
+                hideStatus();
+                return;
+            }
+        }
+        
+        // 显示更详细的错误信息和调试提示
+        reportContent.innerHTML = `
+            <div style="color: #ef4444; margin-bottom: 20px;">
+                <h3>调试信息</h3>
+                <p><strong>错误：</strong>AI未能生成格式化的报告。分隔符 [REPORT_START] 未找到。</p>
+                <p><strong>思考内容长度：</strong>${thinkingContent.length} 字符</p>
+                <p><strong>是否包含分隔符：</strong>${thinkingContent.includes('[REPORT_START]') ? '是' : '否'}</p>
+                <p><strong>备用分离：</strong>已尝试但失败</p>
+                <p><strong>解决方案：</strong>请打开F12控制台查看完整调试信息，或尝试重新生成报告。</p>
+            </div>
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                <p><strong>AI响应的最后200字符：</strong></p>
+                <pre style="white-space: pre-wrap; font-size: 12px;">${thinkingContent.slice(-200)}</pre>
+            </div>
+        `;
+        
         if (!thinkingContent) {
            showThinkingSection();
            document.getElementById('thinkingText').innerHTML = '<p>没有收到任何来自AI的输出。</p>';
@@ -336,10 +499,18 @@ function showError(message) {
 
 // 创建提示词
 function createPrompt(date) {
-    return `【最重要指令】你的输出必须严格分为两个部分，由一个分隔符隔开。
-第一部分是你的思考过程。
-第二部分是最终报告。
-在第一部分（思考过程）结束后，你必须另起一行，只输出 \"[REPORT_START]\" 这个词作为分隔符。
+    return `🚨🚨🚨【CRITICAL】输出格式强制要求🚨🚨🚨
+
+你的回应必须分为两个部分：
+1️⃣ 第一部分：你的思考过程和搜索过程
+2️⃣ 第二部分：最终的分析报告
+
+⚠️ 重要：当你完成思考过程后，必须在单独一行输出以下分隔符：
+[REPORT_START]
+
+这个分隔符是强制性的，不可省略！
+
+🚨🚨🚨【CRITICAL】输出格式强制要求🚨🚨🚨
 
 【角色设定】你是一名专业的金融数据分析师。
 【任务】请基于下面的口令生成过去24h（${date}）上市公司的重大事件分析报告。
@@ -351,6 +522,8 @@ function createPrompt(date) {
 
 ## 【背景】
 为我全面搜集过去24小时内中国上市公司发生的所有重大事件、新闻动态和市场信息。
+
+⭐⭐⭐ 记住：完成思考后必须输出 [REPORT_START] 分隔符！⭐⭐⭐
 
 ## 【搜集格式要求】
 
@@ -377,5 +550,11 @@ function createPrompt(date) {
 - 龙头股表现：[股票名称]([代码])，涨幅[X.XX%]
 - 资金流向：主力净流入[X.XX亿元]
 
-请确保所有数据准确、具体，不使用模糊表述。最终报告的字数严格控制在1100汉字(含标点符号)。`;
+请确保所有数据准确、具体，不使用模糊表述。最终报告的字数严格控制在1100汉字(含标点符号)。
+
+🔥🔥🔥【最终提醒】🔥🔥🔥
+完成思考过程后，在新行输出：[REPORT_START]
+然后再输出最终报告！
+不要忘记这个分隔符！
+🔥🔥🔥【最终提醒】🔥🔥🔥`;
 }
