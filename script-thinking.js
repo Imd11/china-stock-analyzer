@@ -392,7 +392,23 @@ function processChunk(chunk) {
                 finalContent = reportPart;
                 updateFinalContent();
             } else {
-                updateThinkingContent();
+                // 长度阈值触发：若思考文本较长，尝试基于 intelligentSeparation 进行早切
+                if (thinkingContent.length > 1500) {
+                    const separated = intelligentSeparation(thinkingContent);
+                    if (separated.report && separated.report.length > 120) {
+                        isThinkingPhase = false;
+                        thinkingContent = cleanThinkingContent(separated.thinking);
+                        updateThinkingContent();
+                        showResultSection();
+                        showStatus('已根据内容特征切换到最终报告...');
+                        finalContent = separated.report;
+                        updateFinalContent();
+                    } else {
+                        updateThinkingContent();
+                    }
+                } else {
+                    updateThinkingContent();
+                }
             }
         }
     } else {
@@ -415,7 +431,8 @@ function detectReportStartIndex(content) {
     const candidates = [
         '### 【一、市场数据部分】', '## 【市场数据部分】', '### 【市场数据部分】', '【市场数据部分】',
         '上证指数：', '深证成指：', '创业板指：', '恒生指数：',
-        '### 【', '## 【', '【一、', '【二、', '【三、', '【四、', '【五、'
+        '### 【', '## 【', '【一、', '【二、', '【三、', '【四、', '【五、',
+        'Final Report', 'FINAL REPORT', 'Analysis Report', '报告', '# 最终报告', '### 最终报告'
     ];
     let minIndex = -1;
     for (const sep of candidates) {
@@ -697,7 +714,7 @@ function createPrompt(date) {
 4) 不要等待全部内容生成完再输出，必须逐步流式输出；
 5) 最终报告控制在1100汉字以内（含标点）。
 
-【思考输出风格（非常重要）】
+【思考输出风格（非常重要）】（全程使用简体中文，不得输出任何英文）
 - 绝对不要复述或改写本任务的指令、格式或分节标题；
 - 使用第一人称的内部独白，体现真实的分析路径与取舍；
 - 用以下标记组织行：
